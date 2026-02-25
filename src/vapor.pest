@@ -1,0 +1,21 @@
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+char = { 'a'..'z' | 'A'..'Z' | "_" }
+digit = { '0'..'9' }
+
+identifier = { char ~ (char | digit)* }
+number = { digit+ }
+
+value = { number | identifier }
+assignment = { identifier ~ "=" ~ value ~ ";" }
+
+// NEW: send("message");
+send_stmt = { "send" ~ "(" ~ "\"" ~ ( !("\"") ~ ANY )* ~ "\"" ~ ")" ~ ";" }
+shred_stmt = { "shred" ~ "(" ~ "\"" ~ ( !("\"") ~ ANY )* ~ "\"" ~ ")" ~ ";" }
+
+if_stmt = { "if" ~ "(" ~ identifier ~ ")" ~ "{" ~ body ~ "}" }
+while_stmt = { "while" ~ "(" ~ identifier ~ ")" ~ "{" ~ body ~ "}" }
+statement = { identifier ~ "(" ~ ")" ~ ";" }
+
+body = { (assignment | if_stmt | while_stmt | statement | shred_stmt | send_stmt)* }
+
+vapor_func = { SOI ~ "vapor" ~ identifier ~ "(" ~ ")" ~ "{" ~ body ~ "}" ~ EOI }

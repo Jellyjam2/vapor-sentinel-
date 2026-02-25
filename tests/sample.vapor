@@ -1,0 +1,6 @@
+vapor run() {
+  amount = 1000;
+  if(amount) {
+    execute();
+  }
+}
