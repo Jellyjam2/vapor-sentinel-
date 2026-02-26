@@ -62,8 +62,8 @@ impl HardenedStore {
                     if let Some(cond_token) = inner.next() {
                         let cond = cond_token.as_str().trim();
                         let body_pair = inner.next().unwrap();
-                        if *self.vault.get(cond).unwrap_or(&0) > 3200 {
-                            println!("--- 🎯 TRIGGER: {} exceeds 3200MB! ---", cond);
+                        if *self.vault.get(cond).unwrap_or(&0) > 100 {
+                            println!("--- 🎯 TRIGGER: {} exceeds 100MB! ---", cond);
                             self.execute_body(body_pair.into_inner().collect());
                         }
                     }
