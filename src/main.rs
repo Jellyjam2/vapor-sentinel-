@@ -1,19 +1,23 @@
 use pest::Parser;
 use pest_derive::Parser;
+use serde_json::json;
 use std::{collections::HashMap, fs, thread, time::Duration};
-use sysinfo::{System, SystemExt, ProcessExt};
-use serde_json::json; // NEW: Bulletproof JSON
+use sysinfo::{ProcessExt, System, SystemExt}; // NEW: Bulletproof JSON
 
 #[derive(Parser)]
 #[grammar = "vapor.pest"]
 pub struct VaporParser;
 
 struct HardenedStore {
-    vault: HashMap<String, u64>, 
+    vault: HashMap<String, u64>,
 }
 
 impl HardenedStore {
-    fn new() -> Self { Self { vault: HashMap::new() } }
+    fn new() -> Self {
+        Self {
+            vault: HashMap::new(),
+        }
+    }
 
     fn refresh_global(&mut self, sys: &mut System) {
         sys.refresh_all();
@@ -41,12 +45,12 @@ impl HardenedStore {
                             "ram_mb": self.vault.get("SYSTEM_RAM").unwrap_or(&0),
                             "status": "VAPOR_SENTINEL_TRIGGERED"
                         });
-                        
+
                         // Replace with your Webhook.site URL
                         let _ = ureq::post("https://webhook.site")
                             .set("Content-Type", "application/json")
                             .send_string(&alert_data.to_string());
-                            
+
                         println!("--- 📡 SIGNAL BURST SENT: {} ---", msg);
                     }
                 }
@@ -94,7 +98,12 @@ fn main() -> anyhow::Result<()> {
     }";
 
     let parse = VaporParser::parse(Rule::vapor_func, code)?.next().unwrap();
-    let body: Vec<_> = parse.into_inner().find(|p| p.as_rule() == Rule::body).unwrap().into_inner().collect();
+    let body: Vec<_> = parse
+        .into_inner()
+        .find(|p| p.as_rule() == Rule::body)
+        .unwrap()
+        .into_inner()
+        .collect();
 
     println!("--- 2150 SENTINEL ACTIVE (Create 'EXIT' file to dissolve) ---");
 
