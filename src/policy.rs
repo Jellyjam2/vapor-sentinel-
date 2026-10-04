@@ -11,12 +11,14 @@ pub enum ActionPlan {
 }
 
 pub fn plan(evidence: &EvidenceRecord, requested_messages: &[String]) -> ActionPlan {
-    match evidence.state {
+    match evidence.state() {
         SentinelState::Anomalous => {
             let message = if requested_messages.is_empty() {
                 format!(
                     "{} exceeded sentinel threshold: {} > {}",
-                    evidence.metric, evidence.value, evidence.threshold
+                    evidence.metric(),
+                    evidence.value(),
+                    evidence.threshold()
                 )
             } else {
                 requested_messages.join(" | ")
@@ -33,18 +35,12 @@ pub fn plan(evidence: &EvidenceRecord, requested_messages: &[String]) -> ActionP
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::deviation::Deviation;
+    use crate::observation::Observation;
 
     fn anomaly() -> EvidenceRecord {
-        EvidenceRecord {
-            sequence: 2,
-            metric: "SYSTEM_USED_MEMORY_MB".into(),
-            value: 200,
-            threshold: 100,
-            deviation: Deviation::Increased { delta: 40 },
-            state: SentinelState::Anomalous,
-            reason: "threshold exceeded",
-        }
+        let previous = Observation::new("SYSTEM_USED_MEMORY_MB", 1, 80);
+        let current = Observation::new("SYSTEM_USED_MEMORY_MB", 2, 200);
+        EvidenceRecord::evaluate(Some(&previous), &current, 100)
     }
 
     #[test]
@@ -59,9 +55,18 @@ mod tests {
 
     #[test]
     fn non_anomalous_evidence_produces_no_action() {
-        let mut evidence = anomaly();
-        evidence.state = SentinelState::Degraded;
+        let previous = Observation::new("SYSTEM_USED_MEMORY_MB", 1, 80);
+        let current = Observation::new("SYSTEM_USED_MEMORY_MB", 2, 90);
+        let evidence = EvidenceRecord::evaluate(Some(&previous), &current, 100);
 
         assert_eq!(plan(&evidence, &[]), ActionPlan::NoAction);
+    }
+
+    #[test]
+    fn unknown_evidence_cannot_trigger_action() {
+        let current = Observation::new("SYSTEM_USED_MEMORY_MB", 1, 200);
+        let evidence = EvidenceRecord::evaluate(None, &current, 100);
+
+        assert_eq!(plan(&evidence, &["must not fire".into()]), ActionPlan::NoAction);
     }
 }
