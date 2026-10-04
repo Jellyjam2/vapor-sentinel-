@@ -6,6 +6,7 @@
 
 use crate::evidence::EvidenceRecord;
 use crate::policy::ActionPlan;
+use crate::qualification::SentinelState;
 use anyhow::{bail, Context, Result};
 use serde::Serialize;
 use serde_json::json;
@@ -25,7 +26,12 @@ fn actions_enabled() -> bool {
 pub fn execute(plan: &ActionPlan, evidence: &EvidenceRecord) -> Result<ActionExecution> {
     match plan {
         ActionPlan::NoAction => Ok(ActionExecution::Skipped),
-        ActionPlan::Notify { message } => send_webhook(message, evidence),
+        ActionPlan::Notify { message } => {
+            if evidence.state() != SentinelState::Anomalous {
+                bail!("notification plan requires anomalous evidence");
+            }
+            send_webhook(message, evidence)
+        }
     }
 }
 
@@ -56,6 +62,7 @@ fn send_webhook(message: &str, evidence: &EvidenceRecord) -> Result<ActionExecut
 
     let agent = ureq::AgentBuilder::new()
         .timeout(Duration::from_secs(10))
+        .redirects(0)
         .build();
 
     let response = agent
@@ -69,4 +76,52 @@ fn send_webhook(message: &str, evidence: &EvidenceRecord) -> Result<ActionExecut
     }
 
     Ok(ActionExecution::Executed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::deviation::Deviation;
+    use crate::observation::Observation;
+    use crate::qualification::SentinelState;
+
+    fn evidence_with_state(state: SentinelState) -> EvidenceRecord {
+        let previous = Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 80);
+        let current = Observation::new("SYSTEM_USED_MEMORY_MIB", 2, 120);
+        let mut evidence = EvidenceRecord::evaluate(Some(&previous), &current, 100);
+
+        if state == SentinelState::Anomalous {
+            evidence
+        } else {
+            EvidenceRecord::evaluate(
+                Some(&previous),
+                &Observation::new("SYSTEM_USED_MEMORY_MIB", 2, 80),
+                100,
+            )
+        }
+    }
+
+    #[test]
+    fn notification_requires_anomalous_evidence() {
+        let evidence = evidence_with_state(SentinelState::Normal);
+        let plan = ActionPlan::Notify {
+            message: "must not fire".into(),
+        };
+
+        let error = execute(&plan, &evidence).expect_err("non-anomalous notification must fail");
+        assert!(error.to_string().contains("anomalous evidence"));
+    }
+
+    #[test]
+    fn no_action_is_always_skipped() {
+        let evidence = EvidenceRecord::evaluate(
+            None,
+            &Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 120),
+            100,
+        );
+        assert_eq!(
+            execute(&ActionPlan::NoAction, &evidence).unwrap(),
+            ActionExecution::Skipped
+        );
+    }
 }
