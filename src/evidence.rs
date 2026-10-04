@@ -75,8 +75,8 @@ mod tests {
 
     #[test]
     fn evaluation_binds_observation_deviation_and_qualification() {
-        let previous = Observation::new("SYSTEM_RAM", 3, 100);
-        let current = Observation::new("SYSTEM_RAM", 4, 120);
+        let previous = Observation::new("SYSTEM_RAM", 3, 100).unwrap();
+        let current = Observation::new("SYSTEM_RAM", 4, 120).unwrap();
         let e = EvidenceRecord::evaluate(Some(&previous), &current, 100);
         assert_eq!(e.sequence(), 4);
         assert_eq!(e.metric(), "SYSTEM_RAM");
@@ -89,7 +89,7 @@ mod tests {
 
     #[test]
     fn first_observation_is_not_normal() {
-        let current = Observation::new("SYSTEM_RAM", 1, 80);
+        let current = Observation::new("SYSTEM_RAM", 1, 80).unwrap();
         let e = EvidenceRecord::evaluate(None, &current, 100);
         assert_eq!(e.deviation(), &Deviation::NoBaseline);
         assert_eq!(e.state(), SentinelState::Unknown);
