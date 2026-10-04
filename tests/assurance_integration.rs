@@ -9,8 +9,8 @@ use vapor_project::{
 
 #[test]
 fn integrated_anomaly_produces_notification_plan() -> anyhow::Result<()> {
-    let previous = Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 80);
-    let current = Observation::new("SYSTEM_USED_MEMORY_MIB", 2, 120);
+    let previous = Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 80).unwrap();
+    let current = Observation::new("SYSTEM_USED_MEMORY_MIB", 2, 120).unwrap();
     let evidence = EvidenceRecord::evaluate(Some(&previous), &current, 100);
 
     assert_eq!(evidence.deviation(), &Deviation::Increased { delta: 40 });
