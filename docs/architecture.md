@@ -110,6 +110,7 @@ Supported constructs are:
 
 - vapor name() { ... }
 - if(METRIC) { ... }
+- bounded numeric comparisons such as `if(METRIC >= 100) { ... }`
 - send("message");
 
 Unsupported loops, assignments, and generic statements are rejected.
