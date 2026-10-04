@@ -96,6 +96,7 @@ Current supported forms are:
 
 - `vapor name() { ... }`
 - `if(METRIC) { ... }`
+- bounded comparisons such as `if(METRIC >= 100) { ... }`
 - `send("message");`
 
 Loops, assignments, generic statements, filesystem operations, and arbitrary executable constructs are rejected.
@@ -104,7 +105,7 @@ The parser produces declarative intent; it does not perform the action.
 
 ## Runtime boundary
 
-The current executable samples system memory through `sysinfo`.
+The current executable samples system memory through `sysinfo` and loads the DSL policy from an explicit local file selected by validated runtime configuration.
 
 Current metric:
 
@@ -114,7 +115,7 @@ Current implementation threshold:
 
 `> 100 MiB`
 
-The threshold is an implementation default and should not be interpreted as a universal system-health rule.
+The threshold is loaded from validated runtime configuration. The repository default is 100 MiB and should not be interpreted as a universal system-health rule.
 
 ## What this architecture does not claim
 
