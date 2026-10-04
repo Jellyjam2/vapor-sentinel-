@@ -7,6 +7,7 @@ Vapor Sentinel is a Rust-based monitoring and evidence engine built around one s
 > Observe first. Qualify the evidence. Decide policy. Only then permit an external action.
 
 [![Rust CI](https://github.com/Jellyjam2/vapor-sentinel-/actions/workflows/rust.yml/badge.svg)](https://github.com/Jellyjam2/vapor-sentinel-/actions/workflows/rust.yml)
+[![Windows](https://img.shields.io/badge/Windows-0078D4?logo=windows&logoColor=white)](#platform-support) [![macOS](https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white)](#platform-support) [![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)](#platform-support)
 
 ## Engine
 
@@ -103,6 +104,12 @@ A green CI run is necessary but not sufficient for a commercial release. Runtime
     ARCHITECTURE.md        system design boundary
     SECURITY.md            responsible-use + security boundary
     CHANGELOG.md           implementation history
+
+## Platform support
+
+Vapor Sentinel is exercised by CI on all three supported desktop/server families:
+
+**Windows** · **macOS** · **Linux**
 
 ## Development
 
