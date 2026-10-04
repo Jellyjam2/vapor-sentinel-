@@ -50,7 +50,7 @@ pub fn qualify(
         Some(Deviation::Unchanged | Deviation::Increased { .. } | Deviation::Decreased { .. }) => {}
     }
 
-    if observation.value > threshold {
+    if observation.value() > threshold {
         return Qualification {
             state: SentinelState::Anomalous,
             reason: "threshold exceeded",
