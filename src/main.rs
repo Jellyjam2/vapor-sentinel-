@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use serde_json::to_string;
-use std::{fs, thread, time::Duration};
+use std::{env, thread, time::Duration};
 use sysinfo::{ProcessExt, System, SystemExt};
 
 use vapor_project::{
@@ -14,9 +14,6 @@ const MEMORY_METRIC: &str = "SYSTEM_USED_MEMORY_MIB";
 const PROCESS_LOG_THRESHOLD_MIB: u64 = 50;
 const SENTINEL_THRESHOLD_MIB: u64 = 100;
 const POLL_INTERVAL_SECS: u64 = 4;
-const EXIT_SENTINEL_PATH: &str = "EXIT";
-const EXIT_SENTINEL_MARKER: &str = "VAPOR_SENTINEL_EXIT\n";
-
 struct MetricSource {
     sequence: u64,
 }
@@ -67,17 +64,8 @@ fn load_program() -> Result<Program> {
     )
 }
 
-fn shutdown_requested() -> Result<bool> {
-    match fs::read_to_string(EXIT_SENTINEL_PATH) {
-        Ok(contents) if contents == EXIT_SENTINEL_MARKER => {
-            fs::remove_file(EXIT_SENTINEL_PATH)
-                .context("unable to remove validated EXIT sentinel")?;
-            Ok(true)
-        }
-        Ok(_) => Ok(false),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
-        Err(error) => Err(error).context("unable to inspect EXIT sentinel"),
-    }
+fn shutdown_requested() -> bool {
+    env::var("VAPOR_SENTINEL_EXIT").as_deref() == Ok("1")
 }
 
 fn main() -> Result<()> {
@@ -112,7 +100,7 @@ fn main() -> Result<()> {
 
         previous = Some(current);
 
-        if oneshot || shutdown_requested()? {
+        if oneshot || shutdown_requested() {
             break;
         }
 
