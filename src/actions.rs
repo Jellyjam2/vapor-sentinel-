@@ -14,6 +14,9 @@ use std::env;
 use std::time::Duration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+const ACTION_MESSAGE_MAX_BYTES: usize = 4096;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum ActionExecution {
     Executed,
     Skipped,
@@ -27,6 +30,12 @@ pub fn execute(plan: &ActionPlan, evidence: &EvidenceRecord) -> Result<ActionExe
     match plan {
         ActionPlan::NoAction => Ok(ActionExecution::Skipped),
         ActionPlan::Notify { message } => {
+            if message.is_empty() || message.len() > ACTION_MESSAGE_MAX_BYTES {
+                bail!("notification message exceeds action boundary");
+            }
+            if message.chars().any(char::is_control) {
+                bail!("notification message contains control characters");
+            }
             if evidence.state() != SentinelState::Anomalous {
                 bail!("notification plan requires anomalous evidence");
             }
@@ -110,6 +119,15 @@ mod tests {
 
         let error = execute(&plan, &evidence).expect_err("non-anomalous notification must fail");
         assert!(error.to_string().contains("anomalous evidence"));
+    }
+
+    #[test]
+    fn oversized_or_controlled_notification_is_rejected() {
+        let evidence = evidence_with_state(SentinelState::Anomalous);
+        let oversized = ActionPlan::Notify { message: "x".repeat(ACTION_MESSAGE_MAX_BYTES + 1) };
+        assert!(execute(&oversized, &evidence).is_err());
+        let controlled = ActionPlan::Notify { message: "bad\nmessage".into() };
+        assert!(execute(&controlled, &evidence).is_err());
     }
 
     #[test]
