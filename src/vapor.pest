@@ -11,6 +11,6 @@ condition = { comparison | identifier }
 send_stmt = { "send" ~ "(" ~ string_literal ~ ")" ~ ";" }
 if_stmt = { "if" ~ "(" ~ condition ~ ")" ~ "{" ~ body ~ "}" }
 body = { (if_stmt | send_stmt)* }
-string_literal = { """ ~ ( !""" ~ ANY )* ~ """ }
+string_literal = { "\"" ~ ( !"\"" ~ ANY )* ~ "\"" }
 
 vapor_func = { SOI ~ "vapor" ~ identifier ~ "(" ~ ")" ~ "{" ~ body ~ "}" ~ EOI }
