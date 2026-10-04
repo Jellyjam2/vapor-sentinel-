@@ -130,7 +130,7 @@ Each cycle:
 6. optionally executes the isolated notification action;
 7. emits serialized evidence and policy output.
 
-The VAPOR_SENTINEL_ONESHOT=1 environment variable provides a bounded execution mode.
+VAPOR_SENTINEL_ONESHOT=1 provides bounded one-cycle execution. VAPOR_SENTINEL_EXIT=1 provides explicit termination control without a file sentinel.
 
 ## 9. Explicit non-goals
 
