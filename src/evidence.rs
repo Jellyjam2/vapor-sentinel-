@@ -58,9 +58,9 @@ impl EvidenceRecord {
         threshold: u64,
     ) -> Self {
         Self {
-            sequence: observation.sequence,
-            metric: observation.metric.clone(),
-            value: observation.value,
+            sequence: observation.sequence(),
+            metric: observation.metric().to_owned(),
+            value: observation.value(),
             threshold,
             deviation,
             state: qualification.state,
