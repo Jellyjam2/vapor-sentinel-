@@ -35,8 +35,8 @@ mod tests {
 
     #[test]
     fn end_to_end_anomaly_becomes_notification_plan() {
-        let previous = Observation::new("SYSTEM_USED_MEMORY_MB", 1, 80);
-        let current = Observation::new("SYSTEM_USED_MEMORY_MB", 2, 150);
+        let previous = Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 80).unwrap();
+        let current = Observation::new("SYSTEM_USED_MEMORY_MIB", 2, 150).unwrap();
 
         let evaluation = evaluate(
             Some(&previous),
@@ -57,8 +57,8 @@ mod tests {
 
     #[test]
     fn end_to_end_invalid_ordering_stays_unknown_and_cannot_act() {
-        let previous = Observation::new("SYSTEM_USED_MEMORY_MB", 2, 80);
-        let current = Observation::new("SYSTEM_USED_MEMORY_MB", 1, 150);
+        let previous = Observation::new("SYSTEM_USED_MEMORY_MIB", 2, 80).unwrap();
+        let current = Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 150).unwrap();
 
         let evaluation = evaluate(Some(&previous), &current, 100, &["must not fire".into()]);
 
