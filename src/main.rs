@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use serde_json::to_string;
-use std::{thread, time::Duration};
+use std::{fs, thread, time::Duration};
 use sysinfo::{ProcessExt, System, SystemExt};
 
 use vapor_project::{
@@ -10,10 +10,12 @@ use vapor_project::{
     observation::Observation,
 };
 
-const MEMORY_METRIC: &str = "SYSTEM_USED_MEMORY_MB";
-const PROCESS_LOG_THRESHOLD_MB: u64 = 50;
-const SENTINEL_THRESHOLD_MB: u64 = 100;
+const MEMORY_METRIC: &str = "SYSTEM_USED_MEMORY_MIB";
+const PROCESS_LOG_THRESHOLD_MIB: u64 = 50;
+const SENTINEL_THRESHOLD_MIB: u64 = 100;
 const POLL_INTERVAL_SECS: u64 = 4;
+const EXIT_SENTINEL_PATH: &str = "EXIT";
+const EXIT_SENTINEL_MARKER: &str = "VAPOR_SENTINEL_EXIT\n";
 
 struct MetricSource {
     sequence: u64,
@@ -25,22 +27,23 @@ impl MetricSource {
     }
 
     fn observe(&mut self, sys: &mut System) -> Result<Observation> {
-        sys.refresh_all();
+        sys.refresh_memory();
+        sys.refresh_processes();
 
-        let used_memory_mb = sys.used_memory() / 1024 / 1024;
+        let used_memory_mib = sys.used_memory() / 1024 / 1024;
         self.sequence = self
             .sequence
             .checked_add(1)
             .context("observation sequence exhausted")?;
 
-        println!("--- SYSTEM MEMORY: {used_memory_mb}MB used ---");
+        println!("--- SYSTEM MEMORY: {used_memory_mib}MiB used ---");
         for (pid, process) in sys.processes() {
-            let memory_mb = process.memory() / 1024 / 1024;
-            if memory_mb > PROCESS_LOG_THRESHOLD_MB {
+            let memory_mib = process.memory() / 1024 / 1024;
+            if memory_mib > PROCESS_LOG_THRESHOLD_MIB {
                 println!(
-                    "PROCESS: {} ({}MB) [PID: {}]",
+                    "PROCESS: {} ({}MiB) [PID: {}]",
                     process.name(),
-                    memory_mb,
+                    memory_mib,
                     pid
                 );
             }
@@ -49,7 +52,7 @@ impl MetricSource {
         Ok(Observation::new(
             MEMORY_METRIC,
             self.sequence,
-            used_memory_mb,
+            used_memory_mib,
         ))
     }
 }
@@ -57,15 +60,28 @@ impl MetricSource {
 fn load_program() -> Result<Program> {
     dsl::parse_program(
         r#"vapor sentinel() {
-            if(SYSTEM_USED_MEMORY_MB) {
+            if(SYSTEM_USED_MEMORY_MIB) {
                 send("CRITICAL_MEMORY_THRESHOLD");
             }
         }"#,
     )
 }
 
+fn shutdown_requested() -> Result<bool> {
+    match fs::read_to_string(EXIT_SENTINEL_PATH) {
+        Ok(contents) if contents == EXIT_SENTINEL_MARKER => {
+            fs::remove_file(EXIT_SENTINEL_PATH)
+                .context("unable to remove validated EXIT sentinel")?;
+            Ok(true)
+        }
+        Ok(_) => Ok(false),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error).context("unable to inspect EXIT sentinel"),
+    }
+}
+
 fn main() -> Result<()> {
-    let mut sys = System::new_all();
+    let mut sys = System::new();
     let mut source = MetricSource::new();
     let mut previous: Option<Observation> = None;
     let program = load_program()?;
@@ -81,7 +97,7 @@ fn main() -> Result<()> {
         let evaluation = evaluate(
             previous.as_ref(),
             &current,
-            SENTINEL_THRESHOLD_MB,
+            SENTINEL_THRESHOLD_MIB,
             &requested_messages,
         );
 
@@ -96,10 +112,7 @@ fn main() -> Result<()> {
 
         previous = Some(current);
 
-        if oneshot || std::path::Path::new("EXIT").exists() {
-            if std::path::Path::new("EXIT").exists() {
-                std::fs::remove_file("EXIT").context("unable to remove EXIT sentinel")?;
-            }
+        if oneshot || shutdown_requested()? {
             break;
         }
 
@@ -107,4 +120,21 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn exit_marker_requires_exact_contents() {
+        assert!(is_exit_marker(EXIT_SENTINEL_MARKER));
+        assert!(!is_exit_marker(""));
+        assert!(!is_exit_marker("EXIT"));
+        assert!(!is_exit_marker("VAPOR_SENTINEL_EXIT"));
+    }
+
+    fn is_exit_marker(contents: &str) -> bool {
+        contents == EXIT_SENTINEL_MARKER
+    }
 }
