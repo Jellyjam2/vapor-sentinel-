@@ -1,4 +1,5 @@
 pub mod actions;
+pub mod config;
 pub mod deviation;
 pub mod dsl;
 pub mod evidence;
