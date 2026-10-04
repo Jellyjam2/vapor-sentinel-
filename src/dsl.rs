@@ -79,11 +79,7 @@ fn parse_statement(pair: pest::iterators::Pair<'_, Rule>) -> Result<Statement> {
                 .context("if statement missing metric")?
                 .as_str()
                 .to_owned();
-            let body = parse_body(
-                inner
-                    .next()
-                    .context("if statement missing body")?,
-            )?;
+            let body = parse_body(inner.next().context("if statement missing body")?)?;
             Ok(Statement::IfMetric { metric, body })
         }
         rule => bail!("unsupported Vapor rule: {rule:?}"),
