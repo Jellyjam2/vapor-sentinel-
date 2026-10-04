@@ -1,0 +1,5 @@
+{
+  "threshold_mib": 100,
+  "poll_interval_secs": 4,
+  "dsl_path": "policies/default.vapor"
+}
