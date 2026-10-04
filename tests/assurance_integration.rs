@@ -8,7 +8,7 @@ use vapor_project::{
 };
 
 #[test]
-fn integrated_anomaly_produces_notification_plan() {
+fn integrated_anomaly_produces_notification_plan() -> anyhow::Result<()> {
     let previous = Observation::new("SYSTEM_USED_MEMORY_MB", 1, 80);
     let current = Observation::new("SYSTEM_USED_MEMORY_MB", 2, 120);
     let evidence = EvidenceRecord::evaluate(Some(&previous), &current, 100);
@@ -22,8 +22,7 @@ fn integrated_anomaly_produces_notification_plan() {
                 send("CRITICAL_MEMORY_THRESHOLD");
             }
         }"#,
-    )
-    .unwrap();
+    )?;
 
     let messages = program.requested_messages(&current.metric);
     assert_eq!(messages, vec!["CRITICAL_MEMORY_THRESHOLD"]);
@@ -34,10 +33,11 @@ fn integrated_anomaly_produces_notification_plan() {
             message: "CRITICAL_MEMORY_THRESHOLD".into()
         }
     );
+    Ok(())
 }
 
 #[test]
-fn first_observation_cannot_trigger_notification() {
+fn first_observation_cannot_trigger_notification() -> anyhow::Result<()> {
     let current = Observation::new("SYSTEM_USED_MEMORY_MB", 1, 120);
     let evidence = EvidenceRecord::evaluate(None, &current, 100);
 
@@ -49,8 +49,11 @@ fn first_observation_cannot_trigger_notification() {
                 send("CRITICAL_MEMORY_THRESHOLD");
             }
         }"#,
-    )
-    .unwrap();
+    )?;
 
-    assert_eq!(policy::plan(&evidence, &program.requested_messages(&current.metric)), ActionPlan::NoAction);
+    assert_eq!(
+        policy::plan(&evidence, &program.requested_messages(&current.metric)),
+        ActionPlan::NoAction
+    );
+    Ok(())
 }
