@@ -108,7 +108,7 @@ The current executable samples system memory through `sysinfo`.
 
 Current metric:
 
-`SYSTEM_USED_MEMORY_MB`
+`SYSTEM_USED_MEMORY_MIB`
 
 Current implementation threshold:
 
