@@ -45,7 +45,7 @@ mod tests {
     use super::*;
 
     fn obs(sequence: u64, value: u64) -> Observation {
-        Observation::new("SYSTEM_RAM", sequence, value)
+        Observation::new("SYSTEM_RAM", sequence, value).unwrap()
     }
 
     #[test]
@@ -95,8 +95,8 @@ mod tests {
 
     #[test]
     fn metric_identity_is_checked() {
-        let previous = Observation::new("SYSTEM_RAM", 1, 80);
-        let current = Observation::new("PROCESS_MEMORY", 2, 80);
+        let previous = Observation::new("SYSTEM_RAM", 1, 80).unwrap();
+        let current = Observation::new("PROCESS_MEMORY", 2, 80).unwrap();
         assert_eq!(
             compare(Some(&previous), &current),
             Deviation::MetricMismatch
