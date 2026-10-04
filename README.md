@@ -42,13 +42,13 @@ See ARCHITECTURE.md for the design rationale and SECURITY.md for the security bo
 |---|---|
 | Runtime | Rust + sysinfo |
 | Metric | SYSTEM_USED_MEMORY_MIB |
-| Threshold | > 100 MiB implementation default |
+| Threshold | Configured in `vapor-sentinel.json` (default 100 MiB) |
 | Observation | Monotonic sequence number |
 | Deviation | unchanged / increased / decreased / invalid ordering |
 | Qualification | Normal / Degraded / Anomalous / Unknown |
 | Evidence | In-memory EvidenceRecord, JSON serializable |
 | Policy | Pure ActionPlan derivation |
-| DSL | Restricted Pest grammar |
+| DSL | Restricted Pest grammar with bounded comparisons |
 | Actions | Optional HTTPS webhook |
 | Bounded mode | VAPOR_SENTINEL_ONESHOT=1 or VAPOR_SENTINEL_EXIT=1 |
 | Dashboard | Static, read-only presentation preview |
@@ -60,14 +60,20 @@ The memory metric reflects system used memory reported by sysinfo, converted to 
 The DSL currently describes declarative notification intent only:
 
     vapor sentinel() {
-        if(SYSTEM_USED_MEMORY_MIB) {
+        if(SYSTEM_USED_MEMORY_MIB >= 100) {
             send("CRITICAL_MEMORY_THRESHOLD");
         }
     }
 
-Unsupported constructs such as loops, assignments, and generic executable statements are rejected rather than silently ignored.
+The DSL supports metric selectors and bounded numeric comparisons (`>`, `>=`, `<`, `<=`, `==`, `!=`). Loops, assignments, and generic executable statements are rejected rather than silently ignored.
 
-The parser itself performs no filesystem or network side effects.
+The parser itself performs no filesystem or network side effects. Runtime policy is loaded from an explicit local DSL file.
+
+## Configuration
+
+Runtime configuration is loaded from `vapor-sentinel.json` by default, or from the path in `VAPOR_SENTINEL_CONFIG`. The configuration validates the anomaly threshold, polling interval, and DSL policy path before startup.
+
+The default policy is `policies/default.vapor`.
 
 ## Action safety
 
@@ -97,6 +103,7 @@ A green CI run is necessary but not sufficient for a commercial release. Runtime
     ├── policy.rs         side-effect-free action planning
     ├── qualification.rs  sentinel-state qualification
     ├── main.rs           system metric runtime
+    ├── config.rs         validated runtime configuration
     └── vapor.pest        restricted DSL grammar
 
     dashboard/
@@ -109,6 +116,9 @@ A green CI run is necessary but not sufficient for a commercial release. Runtime
 
     ARCHITECTURE.md        system design boundary
     SECURITY.md            responsible-use + security boundary
+    policies/default.vapor default declarative notification policy
+    vapor-sentinel.json    runtime configuration
+
     CHANGELOG.md           implementation history
 
 ## Platform support
