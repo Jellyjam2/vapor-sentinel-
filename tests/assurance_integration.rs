@@ -13,8 +13,8 @@ fn integrated_anomaly_produces_notification_plan() -> anyhow::Result<()> {
     let current = Observation::new("SYSTEM_USED_MEMORY_MB", 2, 120);
     let evidence = EvidenceRecord::evaluate(Some(&previous), &current, 100);
 
-    assert_eq!(evidence.deviation, Deviation::Increased { delta: 40 });
-    assert_eq!(evidence.state, SentinelState::Anomalous);
+    assert_eq!(evidence.deviation(), &Deviation::Increased { delta: 40 });
+    assert_eq!(evidence.state(), SentinelState::Anomalous);
 
     let program = parse_program(
         r#"vapor sentinel() {
@@ -41,7 +41,7 @@ fn first_observation_cannot_trigger_notification() -> anyhow::Result<()> {
     let current = Observation::new("SYSTEM_USED_MEMORY_MB", 1, 120);
     let evidence = EvidenceRecord::evaluate(None, &current, 100);
 
-    assert_eq!(evidence.state, SentinelState::Unknown);
+    assert_eq!(evidence.state(), SentinelState::Unknown);
 
     let program = parse_program(
         r#"vapor sentinel() {
