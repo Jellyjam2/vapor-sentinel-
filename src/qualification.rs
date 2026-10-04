@@ -47,11 +47,7 @@ pub fn qualify(
                 reason: "baseline unavailable",
             };
         }
-        Some(
-            Deviation::Unchanged
-            | Deviation::Increased { .. }
-            | Deviation::Decreased { .. },
-        ) => {}
+        Some(Deviation::Unchanged | Deviation::Increased { .. } | Deviation::Decreased { .. }) => {}
     }
 
     if observation.value > threshold {
