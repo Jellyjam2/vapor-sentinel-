@@ -1,5 +1,11 @@
 # Security Policy & Responsible Use
 
+## Product Ownership
+
+**Vapor Sentinel is developed and maintained by Titan Black Swan TECHNOLOGIES.**
+
+This repository describes a defensive monitoring product. Product ownership and maintenance do not change the authorized-use boundary defined below.
+
 ## Overview
 
 Vapor Sentinel is a **defensive system monitoring engine** designed for authorized security research and protective system administration. This policy outlines core responsibilities for all users and contributors.
