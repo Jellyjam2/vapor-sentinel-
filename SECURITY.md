@@ -46,9 +46,15 @@ The current runtime does not claim cryptographic memory zeroization. The previou
 
 Do not treat ordinary Rust ownership, collection clearing, or process termination as proof of secure memory erasure.
 
+### Runtime configuration
+
+Runtime configuration is explicit rather than compiled into the executable. Startup validates the threshold, polling interval, and configured DSL path. The default configuration is `vapor-sentinel.json`; `VAPOR_SENTINEL_CONFIG` may select another configuration file.
+
+Treat the configuration and DSL policy files as deployment-controlled inputs; they must not be accepted from untrusted network sources.
+
 ### DSL boundary
 
-The Vapor DSL intentionally supports a small set of declarative notification constructs. Unsupported constructs such as loops, assignments, and generic executable statements are rejected rather than silently ignored.
+The Vapor DSL intentionally supports a small set of declarative notification constructs, including bounded numeric comparisons. Unsupported constructs such as loops, assignments, and generic executable statements are rejected rather than silently ignored.
 
 The DSL itself does not obtain external authority.
 
