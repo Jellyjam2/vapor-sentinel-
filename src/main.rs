@@ -38,7 +38,12 @@ impl MetricSource {
         for (pid, process) in sys.processes() {
             let memory_mb = process.memory() / 1024 / 1024;
             if memory_mb > PROCESS_LOG_THRESHOLD_MB {
-                println!("PROCESS: {} ({}MB) [PID: {}]", process.name(), memory_mb, pid);
+                println!(
+                    "PROCESS: {} ({}MB) [PID: {}]",
+                    process.name(),
+                    memory_mb,
+                    pid
+                );
             }
         }
 
@@ -73,8 +78,7 @@ fn main() -> Result<()> {
 
     loop {
         let current = source.observe(&mut sys)?;
-        let evidence =
-            EvidenceRecord::evaluate(previous.as_ref(), &current, SENTINEL_THRESHOLD_MB);
+        let evidence = EvidenceRecord::evaluate(previous.as_ref(), &current, SENTINEL_THRESHOLD_MB);
         let requested_messages = program.requested_messages(&current.metric);
         let plan = policy::plan(&evidence, &requested_messages);
 
