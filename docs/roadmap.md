@@ -23,9 +23,9 @@ Status: in progress
 
 ## Phase B — Operator product
 
-Status: planned
+Status: in progress
 
-- [ ] Read-only operator dashboard
+- [x] Read-only operator dashboard preview
 - [ ] Live evidence stream
 - [ ] State history and transition display
 - [ ] Evidence export
@@ -33,7 +33,7 @@ Status: planned
 - [ ] Clear action status reporting
 - [ ] Installation and upgrade workflow
 
-The dashboard must remain an observation/evidence interface. It must not acquire hidden authority or silently perform privileged actions.
+The current dashboard is presentation-only. It uses explicit sample evidence and has no live evidence transport. It must remain an observation/evidence interface and must not acquire hidden authority or silently perform privileged actions.
 
 ## Phase C — Pilot readiness
 

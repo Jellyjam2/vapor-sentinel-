@@ -51,6 +51,7 @@ See ARCHITECTURE.md for the design rationale and SECURITY.md for the security bo
 | DSL | Restricted Pest grammar |
 | Actions | Optional HTTPS webhook |
 | Bounded mode | VAPOR_SENTINEL_ONESHOT=1 |
+| Dashboard | Static, read-only presentation preview |
 
 The memory metric reflects system used memory reported by sysinfo, converted to MiB. The threshold is an implementation default, not a universal safe-operating value.
 
@@ -98,6 +99,11 @@ A green CI run is necessary but not sufficient for a commercial release. Runtime
     ├── main.rs           system metric runtime
     └── vapor.pest        restricted DSL grammar
 
+    dashboard/
+    ├── index.html        read-only operator interface preview
+    ├── styles.css        presentation styling
+    └── app.js            presentation-only sample evidence
+
     .github/workflows/
     └── rust.yml          CI gates
 
@@ -107,9 +113,11 @@ A green CI run is necessary but not sufficient for a commercial release. Runtime
 
 ## Platform support
 
-Vapor Sentinel is exercised by CI on all three supported desktop/server families:
+CI targets all three supported desktop/server families:
 
 **Windows** · **macOS** · **Linux**
+
+The dashboard is a browser-based static preview and currently has no live evidence transport.
 
 ## Development
 

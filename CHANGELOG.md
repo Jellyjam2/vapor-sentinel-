@@ -14,12 +14,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - A restricted Vapor DSL parser that produces declarative notification requests without performing filesystem or network operations itself.
 - Optional HTTPS webhook notification through an explicit environment-controlled action boundary.
 - A one-shot runtime mode for deterministic local execution and smoke testing.
+- A static, read-only dashboard preview using explicit sample data.
 
 ### Changed
 - Runtime processing now follows the explicit assurance path:
   `observation -> deviation -> qualification -> evidence -> policy -> optional action`.
 - The runtime memory metric is named `SYSTEM_USED_MEMORY_MB` and reflects system used memory reported by `sysinfo`.
 - Unsupported DSL constructs are rejected rather than silently ignored.
+- CI cache keys now include dependency manifests and the Rust matrix entry, and test/build matrices continue on individual failures so platform evidence is not hidden by fail-fast cancellation.
+
+### Removed
+- Obsolete checked-in diagnostic process telemetry logs from `tests/`.
 
 ### Security
 - External network actions are disabled unless `VAPOR_SENTINEL_ENABLE_ACTIONS=1` is set.

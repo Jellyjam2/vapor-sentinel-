@@ -29,7 +29,7 @@ Qualification is fail-closed. Missing baselines and invalid observation ordering
 
 ### External actions
 
-External side effects are isolated in src/actions.rs.
+External notification side effects are isolated in src/actions.rs.
 
 Webhook notification requires both:
 
@@ -38,7 +38,7 @@ Webhook notification requires both:
 
 Action errors are surfaced rather than discarded.
 
-The current implementation does not perform filesystem deletion. In particular, Vapor Sentinel does not claim secure shredding or guaranteed unrecoverable file destruction.
+The current implementation does not provide a destructive filesystem action. The runtime only removes its own EXIT control sentinel when that shutdown mechanism is used. Vapor Sentinel does not claim secure shredding or guaranteed unrecoverable file destruction.
 
 ### Memory handling
 
