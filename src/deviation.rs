@@ -1,19 +1,9 @@
 //! Pure deterministic observation/deviation primitives.
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Observation {
-    pub metric: String,
-    pub sequence: u64,
-    pub value: u64,
-}
+use crate::observation::Observation;
+use serde::Serialize;
 
-impl Observation {
-    pub fn new(metric: impl Into<String>, sequence: u64, value: u64) -> Self {
-        Self { metric: metric.into(), sequence, value }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum Deviation {
     NoBaseline,
     Unchanged,
@@ -41,20 +31,22 @@ pub fn compare(previous: Option<&Observation>, current: &Observation) -> Deviati
 mod tests {
     use super::*;
     fn obs(sequence: u64, value: u64) -> Observation { Observation::new("SYSTEM_RAM", sequence, value) }
-    #[test] fn first_observation_establishes_baseline() { assert_eq!(compare(None, &obs(1, 80)), Deviation::NoBaseline); }
-    #[test] fn identical_values_have_no_change() { assert_eq!(compare(Some(&obs(1, 80)), &obs(2, 80)), Deviation::Unchanged); }
-    #[test] fn increases_are_reported_with_exact_delta() { assert_eq!(compare(Some(&obs(1, 80)), &obs(2, 120)), Deviation::Increased { delta: 40 }); }
-    #[test] fn decreases_are_reported_with_exact_delta() { assert_eq!(compare(Some(&obs(1, 120)), &obs(2, 80)), Deviation::Decreased { delta: 40 }); }
-    #[test] fn duplicate_sequences_are_rejected_deterministically() { assert_eq!(compare(Some(&obs(7, 80)), &obs(7, 120)), Deviation::DuplicateSequence); }
-    #[test] fn out_of_order_sequences_are_rejected_deterministically() { assert_eq!(compare(Some(&obs(7, 80)), &obs(6, 120)), Deviation::OutOfOrderSequence); }
-    #[test] fn metric_identity_is_part_of_the_comparison_contract() {
+    #[test]
+    fn missing_baseline_is_reported() { assert_eq!(compare(None, &obs(1, 80)), Deviation::NoBaseline); }
+    #[test]
+    fn identical_values_have_no_change() { assert_eq!(compare(Some(&obs(1, 80)), &obs(2, 80)), Deviation::Unchanged); }
+    #[test]
+    fn increases_are_reported_with_exact_delta() { assert_eq!(compare(Some(&obs(1, 80)), &obs(2, 120)), Deviation::Increased { delta: 40 }); }
+    #[test]
+    fn decreases_are_reported_with_exact_delta() { assert_eq!(compare(Some(&obs(1, 120)), &obs(2, 80)), Deviation::Decreased { delta: 40 }); }
+    #[test]
+    fn duplicate_sequences_are_rejected() { assert_eq!(compare(Some(&obs(7, 80)), &obs(7, 120)), Deviation::DuplicateSequence); }
+    #[test]
+    fn out_of_order_sequences_are_rejected() { assert_eq!(compare(Some(&obs(7, 80)), &obs(6, 120)), Deviation::OutOfOrderSequence); }
+    #[test]
+    fn metric_identity_is_checked() {
         let previous = Observation::new("SYSTEM_RAM", 1, 80);
         let current = Observation::new("PROCESS_MEMORY", 2, 80);
         assert_eq!(compare(Some(&previous), &current), Deviation::MetricMismatch);
-    }
-    #[test] fn replay_is_semantically_deterministic() {
-        let previous = obs(1, 100);
-        let current = obs(2, 140);
-        assert_eq!(compare(Some(&previous), &current), compare(Some(&previous), &current));
     }
 }

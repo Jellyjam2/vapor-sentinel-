@@ -1,6 +1,8 @@
 //! Canonical observations emitted by the monitoring boundary.
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+use serde::Serialize;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Observation {
     pub metric: String,
     pub sequence: u64,
