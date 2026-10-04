@@ -211,7 +211,7 @@ mod tests {
 
     #[test]
     fn control_character_in_notification_message_is_rejected() {
-        let source = "vapor sentinel() { send(\"bad\\u{0000}message\"); }";
+        let source = "vapor sentinel() { send(\"bad\0message\"); }";
         assert!(parse_program(source).is_err());
     }
 
