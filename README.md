@@ -41,7 +41,7 @@ See ARCHITECTURE.md for the design rationale and SECURITY.md for the security bo
 | Area | Current behavior |
 |---|---|
 | Runtime | Rust + sysinfo |
-| Metric | SYSTEM_USED_MEMORY_MB |
+| Metric | SYSTEM_USED_MEMORY_MIB |
 | Threshold | > 100 MiB implementation default |
 | Observation | Monotonic sequence number |
 | Deviation | unchanged / increased / decreased / invalid ordering |
@@ -50,7 +50,7 @@ See ARCHITECTURE.md for the design rationale and SECURITY.md for the security bo
 | Policy | Pure ActionPlan derivation |
 | DSL | Restricted Pest grammar |
 | Actions | Optional HTTPS webhook |
-| Bounded mode | VAPOR_SENTINEL_ONESHOT=1 |
+| Bounded mode | VAPOR_SENTINEL_ONESHOT=1 or VAPOR_SENTINEL_EXIT=1 |
 | Dashboard | Static, read-only presentation preview |
 
 The memory metric reflects system used memory reported by sysinfo, converted to MiB. The threshold is an implementation default, not a universal safe-operating value.
@@ -60,7 +60,7 @@ The memory metric reflects system used memory reported by sysinfo, converted to 
 The DSL currently describes declarative notification intent only:
 
     vapor sentinel() {
-        if(SYSTEM_USED_MEMORY_MB) {
+        if(SYSTEM_USED_MEMORY_MIB) {
             send("CRITICAL_MEMORY_THRESHOLD");
         }
     }
