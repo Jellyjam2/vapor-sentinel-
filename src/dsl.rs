@@ -102,21 +102,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parses_notification_inside_matching_metric_rule() {
+    fn parses_notification_inside_matching_metric_rule() -> anyhow::Result<()> {
         let program = parse_program(
             r#"vapor sentinel() {
                 if(SYSTEM_USED_MEMORY_MB) {
                     send("memory threshold breached");
                 }
             }"#,
-        )
-        .unwrap();
+        )?;
 
         assert_eq!(
             program.requested_messages("SYSTEM_USED_MEMORY_MB"),
             vec!["memory threshold breached"]
         );
         assert!(program.requested_messages("OTHER_METRIC").is_empty());
+        Ok(())
     }
 
     #[test]
