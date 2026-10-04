@@ -40,50 +40,19 @@ pub fn compare(previous: Option<&Observation>, current: &Observation) -> Deviati
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn obs(sequence: u64, value: u64) -> Observation {
-        Observation::new("SYSTEM_RAM", sequence, value)
-    }
-
-    #[test]
-    fn first_observation_establishes_baseline() {
-        assert_eq!(compare(None, &obs(1, 80)), Deviation::NoBaseline);
-    }
-
-    #[test]
-    fn identical_values_have_no_change() {
-        assert_eq!(compare(Some(&obs(1, 80)), &obs(2, 80)), Deviation::Unchanged);
-    }
-
-    #[test]
-    fn increases_are_reported_with_exact_delta() {
-        assert_eq!(compare(Some(&obs(1, 80)), &obs(2, 120)), Deviation::Increased { delta: 40 });
-    }
-
-    #[test]
-    fn decreases_are_reported_with_exact_delta() {
-        assert_eq!(compare(Some(&obs(1, 120)), &obs(2, 80)), Deviation::Decreased { delta: 40 });
-    }
-
-    #[test]
-    fn duplicate_sequences_are_rejected_deterministically() {
-        assert_eq!(compare(Some(&obs(7, 80)), &obs(7, 120)), Deviation::DuplicateSequence);
-    }
-
-    #[test]
-    fn out_of_order_sequences_are_rejected_deterministically() {
-        assert_eq!(compare(Some(&obs(7, 80)), &obs(6, 120)), Deviation::OutOfOrderSequence);
-    }
-
-    #[test]
-    fn metric_identity_is_part_of_the_comparison_contract() {
+    fn obs(sequence: u64, value: u64) -> Observation { Observation::new("SYSTEM_RAM", sequence, value) }
+    #[test] fn first_observation_establishes_baseline() { assert_eq!(compare(None, &obs(1, 80)), Deviation::NoBaseline); }
+    #[test] fn identical_values_have_no_change() { assert_eq!(compare(Some(&obs(1, 80)), &obs(2, 80)), Deviation::Unchanged); }
+    #[test] fn increases_are_reported_with_exact_delta() { assert_eq!(compare(Some(&obs(1, 80)), &obs(2, 120)), Deviation::Increased { delta: 40 }); }
+    #[test] fn decreases_are_reported_with_exact_delta() { assert_eq!(compare(Some(&obs(1, 120)), &obs(2, 80)), Deviation::Decreased { delta: 40 }); }
+    #[test] fn duplicate_sequences_are_rejected_deterministically() { assert_eq!(compare(Some(&obs(7, 80)), &obs(7, 120)), Deviation::DuplicateSequence); }
+    #[test] fn out_of_order_sequences_are_rejected_deterministically() { assert_eq!(compare(Some(&obs(7, 80)), &obs(6, 120)), Deviation::OutOfOrderSequence); }
+    #[test] fn metric_identity_is_part_of_the_comparison_contract() {
         let previous = Observation::new("SYSTEM_RAM", 1, 80);
         let current = Observation::new("PROCESS_MEMORY", 2, 80);
         assert_eq!(compare(Some(&previous), &current), Deviation::MetricMismatch);
     }
-
-    #[test]
-    fn replay_is_semantically_deterministic() {
+    #[test] fn replay_is_semantically_deterministic() {
         let previous = obs(1, 100);
         let current = obs(2, 140);
         assert_eq!(compare(Some(&previous), &current), compare(Some(&previous), &current));
