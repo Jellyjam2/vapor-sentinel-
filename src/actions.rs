@@ -46,11 +46,11 @@ fn send_webhook(message: &str, evidence: &EvidenceRecord) -> Result<ActionExecut
     }
 
     let payload = json!({
-        "metric": evidence.metric,
-        "sequence": evidence.sequence,
-        "value": evidence.value,
-        "threshold": evidence.threshold,
-        "state": evidence.state,
+        "metric": evidence.metric(),
+        "sequence": evidence.sequence(),
+        "value": evidence.value(),
+        "threshold": evidence.threshold(),
+        "state": evidence.state(),
         "message": message,
     });
 
