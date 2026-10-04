@@ -1,4 +1,4 @@
-const sampleEvidence={sequence:1842,metric:"SYSTEM_USED_MEMORY_MB",value:118,threshold:100,delta:12,state:"ANOMALOUS",reason:"Threshold exceeded"};
+const sampleEvidence={sequence:1842,metric:"SYSTEM_USED_MEMORY_MIB",value:118,threshold:100,delta:12,state:"ANOMALOUS",reason:"Threshold exceeded"};
 document.querySelector("#sequence").textContent=sampleEvidence.sequence;
 document.querySelector("#metric").textContent=sampleEvidence.metric;
 document.querySelector("#value").textContent=sampleEvidence.value;
