@@ -2,6 +2,8 @@
 name = "vapor_project"
 version = "0.1.0"
 edition = "2021"
+authors = ["Titan Black Swan TECHNOLOGIES"]
+description = "Vapor Sentinel — defensive system monitoring engine by Titan Black Swan TECHNOLOGIES."
 
 [dependencies]
 # CORE PARSER
@@ -10,7 +12,7 @@ pest_derive = "2.7"
 
 # 2150 SECURITY
 zeroize = { version = "1.7", features = ["derive"] }
-region = "3.0" 
+region = "3.0"
 
 # SYSTEM & NETWORKING
 anyhow = "1.0"
