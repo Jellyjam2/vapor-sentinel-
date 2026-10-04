@@ -1,123 +1,104 @@
-use pest::Parser;
-use pest_derive::Parser;
-use serde_json::json;
-use std::{collections::HashMap, fs, thread, time::Duration};
-use sysinfo::{ProcessExt, System, SystemExt}; // NEW: Bulletproof JSON
+use anyhow::{Context, Result};
+use serde_json::to_string;
+use std::{thread, time::Duration};
+use sysinfo::{ProcessExt, System, SystemExt};
 
-#[derive(Parser)]
-#[grammar = "vapor.pest"]
-pub struct VaporParser;
+use vapor_project::{
+    actions::{self, ActionExecution},
+    dsl::{self, Program},
+    evidence::EvidenceRecord,
+    observation::Observation,
+    policy::{self, ActionPlan},
+};
 
-struct HardenedStore {
-    vault: HashMap<String, u64>,
+const MEMORY_METRIC: &str = "SYSTEM_USED_MEMORY_MB";
+const PROCESS_LOG_THRESHOLD_MB: u64 = 50;
+const SENTINEL_THRESHOLD_MB: u64 = 100;
+const POLL_INTERVAL_SECS: u64 = 4;
+
+struct MetricSource {
+    sequence: u64,
 }
 
-impl HardenedStore {
+impl MetricSource {
     fn new() -> Self {
-        Self {
-            vault: HashMap::new(),
-        }
+        Self { sequence: 0 }
     }
 
-    fn refresh_global(&mut self, sys: &mut System) {
+    fn observe(&mut self, sys: &mut System) -> Result<Observation> {
         sys.refresh_all();
-        let total_ram = sys.used_memory() / 1024 / 1024;
-        self.vault.insert("SYSTEM_RAM".to_string(), total_ram);
 
-        println!("--- 🛰️ GLOBAL RADAR: System {}MB ---", total_ram);
+        let used_memory_mb = sys.used_memory() / 1024 / 1024;
+        self.sequence = self
+            .sequence
+            .checked_add(1)
+            .context("observation sequence exhausted")?;
+
+        println!("--- SYSTEM MEMORY: {used_memory_mb}MB used ---");
         for (pid, process) in sys.processes() {
-            let mb = process.memory() / 1024 / 1024;
-            if mb > 50 {
-                println!("🔎 ACTIVE: {} ({}MB) [PID: {}]", process.name(), mb, pid);
+            let memory_mb = process.memory() / 1024 / 1024;
+            if memory_mb > PROCESS_LOG_THRESHOLD_MB {
+                println!("PROCESS: {} ({}MB) [PID: {}]", process.name(), memory_mb, pid);
             }
         }
-    }
 
-    fn execute_body(&mut self, pairs: Vec<pest::iterators::Pair<Rule>>) {
-        for pair in pairs {
-            match pair.as_rule() {
-                Rule::send_stmt => {
-                    if let Some(inner) = pair.clone().into_inner().next() {
-                        let msg = inner.as_str();
-                        // 2150 SURGICAL JSON: Manual construction to avoid crate bugs
-                        let alert_data = json!({
-                            "alert": msg,
-                            "ram_mb": self.vault.get("SYSTEM_RAM").unwrap_or(&0),
-                            "status": "VAPOR_SENTINEL_TRIGGERED"
-                        });
-
-                        // Replace with your Webhook.site URL
-                        let _ = ureq::post("https://webhook.site")
-                            .set("Content-Type", "application/json")
-                            .send_string(&alert_data.to_string());
-
-                        println!("--- 📡 SIGNAL BURST SENT: {} ---", msg);
-                    }
-                }
-                Rule::shred_stmt => {
-                    if let Some(inner) = pair.into_inner().next() {
-                        let path = inner.as_str();
-                        let _ = fs::remove_file(path);
-                        println!("--- 🔥 VAPORIZED: {} SHREDDED ---", path);
-                    }
-                }
-                Rule::if_stmt => {
-                    let mut inner = pair.into_inner();
-                    if let Some(cond_token) = inner.next() {
-                        let cond = cond_token.as_str().trim();
-                        let body_pair = inner.next().unwrap();
-                        if *self.vault.get(cond).unwrap_or(&0) > 100 {
-                            println!("--- 🎯 TRIGGER: {} exceeds 100MB! ---", cond);
-                            self.execute_body(body_pair.into_inner().collect());
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
+        Ok(Observation::new(
+            MEMORY_METRIC,
+            self.sequence,
+            used_memory_mb,
+        ))
     }
 }
 
-impl Drop for HardenedStore {
-    fn drop(&mut self) {
-        println!("--- 2150 SECURITY: SHREDDING VAULT ---");
-        self.vault.clear();
-        println!("--- 2150 SECURITY: SYSTEM CLEAN. ---");
-    }
+fn load_program() -> Result<Program> {
+    dsl::parse_program(
+        r#"vapor sentinel() {
+            if(SYSTEM_USED_MEMORY_MB) {
+                send("CRITICAL_MEMORY_THRESHOLD");
+            }
+        }"#,
+    )
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<()> {
     let mut sys = System::new_all();
-    let mut engine = HardenedStore::new();
+    let mut source = MetricSource::new();
+    let mut previous: Option<Observation> = None;
+    let program = load_program()?;
+    let oneshot = std::env::var("VAPOR_SENTINEL_ONESHOT").as_deref() == Ok("1");
 
-    let code = "vapor sentinel() { 
-        if(SYSTEM_RAM) { 
-            send(\"CRITICAL_RAM_DETECTED\"); 
-            shred(\"tests/bounty_hunt.log\"); 
-        } 
-    }";
-
-    let parse = VaporParser::parse(Rule::vapor_func, code)?.next().unwrap();
-    let body: Vec<_> = parse
-        .into_inner()
-        .find(|p| p.as_rule() == Rule::body)
-        .unwrap()
-        .into_inner()
-        .collect();
-
-    println!("--- 2150 SENTINEL ACTIVE (Create 'EXIT' file to dissolve) ---");
+    println!("--- VAPOR SENTINEL ACTIVE ---");
+    println!("Assurance path: observation -> deviation -> qualification -> evidence -> policy.");
+    println!("Network actions are disabled unless VAPOR_SENTINEL_ENABLE_ACTIONS=1.");
 
     loop {
-        engine.refresh_global(&mut sys);
-        engine.execute_body(body.clone());
+        let current = source.observe(&mut sys)?;
+        let evidence =
+            EvidenceRecord::evaluate(previous.as_ref(), &current, SENTINEL_THRESHOLD_MB);
+        let requested_messages = program.requested_messages(&current.metric);
+        let plan = policy::plan(&evidence, &requested_messages);
 
-        if std::path::Path::new("EXIT").exists() {
-            let _ = fs::remove_file("EXIT");
+        println!("EVIDENCE: {}", to_string(&evidence)?);
+        println!("POLICY: {}", to_string(&plan)?);
+
+        match actions::execute(&plan, &evidence) {
+            Ok(ActionExecution::Executed) => println!("ACTION: notification executed"),
+            Ok(ActionExecution::Skipped) => println!("ACTION: skipped"),
+            Err(error) => eprintln!("ACTION ERROR: {error:#}"),
+        }
+
+        previous = Some(current);
+
+        if oneshot || std::path::Path::new("EXIT").exists() {
+            if std::path::Path::new("EXIT").exists() {
+                std::fs::remove_file("EXIT").context("unable to remove EXIT sentinel")?;
+            }
             break;
         }
-        thread::sleep(Duration::from_secs(4));
+
+        thread::sleep(Duration::from_secs(POLL_INTERVAL_SECS));
     }
 
-    drop(engine);
+    let _ = ActionPlan::NoAction;
     Ok(())
 }

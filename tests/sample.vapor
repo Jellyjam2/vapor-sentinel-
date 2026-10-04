@@ -1,6 +1,5 @@
-vapor run() {
-  amount = 1000;
-  if(amount) {
-    execute();
+vapor sentinel() {
+  if(SYSTEM_USED_MEMORY_MB) {
+    send("CRITICAL_MEMORY_THRESHOLD");
   }
 }
