@@ -5,3 +5,64 @@ pub mod evidence;
 pub mod observation;
 pub mod policy;
 pub mod qualification;
+
+use evidence::EvidenceRecord;
+use observation::Observation;
+use policy::ActionPlan;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Evaluation {
+    pub evidence: EvidenceRecord,
+    pub plan: ActionPlan,
+}
+
+pub fn evaluate(
+    previous: Option<&Observation>,
+    current: &Observation,
+    threshold: u64,
+    requested_messages: &[String],
+) -> Evaluation {
+    let evidence = EvidenceRecord::evaluate(previous, current, threshold);
+    let plan = policy::plan(&evidence, requested_messages);
+
+    Evaluation { evidence, plan }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::qualification::SentinelState;
+
+    #[test]
+    fn end_to_end_anomaly_becomes_notification_plan() {
+        let previous = Observation::new("SYSTEM_USED_MEMORY_MB", 1, 80);
+        let current = Observation::new("SYSTEM_USED_MEMORY_MB", 2, 150);
+
+        let evaluation = evaluate(
+            Some(&previous),
+            &current,
+            100,
+            &["CRITICAL_MEMORY_THRESHOLD".into()],
+        );
+
+        assert_eq!(evaluation.evidence.state(), SentinelState::Anomalous);
+        assert_eq!(evaluation.evidence.sequence(), 2);
+        assert_eq!(
+            evaluation.plan,
+            ActionPlan::Notify {
+                message: "CRITICAL_MEMORY_THRESHOLD".into()
+            }
+        );
+    }
+
+    #[test]
+    fn end_to_end_invalid_ordering_stays_unknown_and_cannot_act() {
+        let previous = Observation::new("SYSTEM_USED_MEMORY_MB", 2, 80);
+        let current = Observation::new("SYSTEM_USED_MEMORY_MB", 1, 150);
+
+        let evaluation = evaluate(Some(&previous), &current, 100, &["must not fire".into()]);
+
+        assert_eq!(evaluation.evidence.state(), SentinelState::Unknown);
+        assert_eq!(evaluation.plan, ActionPlan::NoAction);
+    }
+}
