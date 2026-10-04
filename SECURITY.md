@@ -38,7 +38,7 @@ Webhook notification requires both:
 
 Action errors are surfaced rather than discarded.
 
-The current implementation does not provide a destructive filesystem action. The runtime only removes its own EXIT control sentinel when that shutdown mechanism is used. Vapor Sentinel does not claim secure shredding or guaranteed unrecoverable file destruction.
+The current implementation does not provide a destructive filesystem action or file-based shutdown control. The bounded runtime uses VAPOR_SENTINEL_ONESHOT=1 or VAPOR_SENTINEL_EXIT=1 for explicit process termination; it does not inspect or delete arbitrary files. Vapor Sentinel does not claim secure shredding or guaranteed unrecoverable file destruction.
 
 ### Memory handling
 
