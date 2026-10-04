@@ -13,7 +13,6 @@ use serde_json::json;
 use std::env;
 use std::time::Duration;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 const ACTION_MESSAGE_MAX_BYTES: usize = 4096;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
