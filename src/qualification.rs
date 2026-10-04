@@ -24,27 +24,48 @@ pub fn qualify(
     threshold: u64,
 ) -> Qualification {
     let Some(observation) = observation else {
-        return Qualification { state: SentinelState::Unknown, reason: "no observation" };
+        return Qualification {
+            state: SentinelState::Unknown,
+            reason: "no observation",
+        };
     };
 
     match deviation {
-        Some(Deviation::DuplicateSequence | Deviation::OutOfOrderSequence | Deviation::MetricMismatch) =>
-            Qualification { state: SentinelState::Unknown, reason: "invalid observation ordering or identity" },
-        Some(Deviation::NoBaseline) | None =>
-            Qualification { state: SentinelState::Unknown, reason: "baseline unavailable" },
+        Some(Deviation::DuplicateSequence | Deviation::OutOfOrderSequence | Deviation::MetricMismatch) => {
+            return Qualification {
+                state: SentinelState::Unknown,
+                reason: "invalid observation ordering or identity",
+            };
+        }
+        Some(Deviation::NoBaseline) | None => {
+            return Qualification {
+                state: SentinelState::Unknown,
+                reason: "baseline unavailable",
+            };
+        }
         Some(Deviation::Unchanged | Deviation::Increased { .. } | Deviation::Decreased { .. }) => {}
     }
 
     if observation.value > threshold {
-        return Qualification { state: SentinelState::Anomalous, reason: "threshold exceeded" };
+        return Qualification {
+            state: SentinelState::Anomalous,
+            reason: "threshold exceeded",
+        };
     }
 
     match deviation {
-        Some(Deviation::Increased { .. } | Deviation::Decreased { .. }) =>
-            Qualification { state: SentinelState::Degraded, reason: "metric changed" },
-        Some(Deviation::Unchanged) =>
-            Qualification { state: SentinelState::Normal, reason: "evidence within threshold" },
-        _ => Qualification { state: SentinelState::Unknown, reason: "insufficient evidence" },
+        Some(Deviation::Increased { .. } | Deviation::Decreased { .. }) => Qualification {
+            state: SentinelState::Degraded,
+            reason: "metric changed",
+        },
+        Some(Deviation::Unchanged) => Qualification {
+            state: SentinelState::Normal,
+            reason: "evidence within threshold",
+        },
+        _ => Qualification {
+            state: SentinelState::Unknown,
+            reason: "insufficient evidence",
+        },
     }
 }
 
@@ -52,13 +73,21 @@ pub fn qualify(
 mod tests {
     use super::*;
     use crate::deviation::compare;
+
     #[test]
-    fn missing_observation_is_unknown() { assert_eq!(qualify(None, None, 100).state, SentinelState::Unknown); }
+    fn missing_observation_is_unknown() {
+        assert_eq!(qualify(None, None, 100).state, SentinelState::Unknown);
+    }
+
     #[test]
     fn first_observation_is_unknown_until_baseline_exists() {
         let current = Observation::new("SYSTEM_RAM", 1, 80);
-        assert_eq!(qualify(Some(&current), Some(&Deviation::NoBaseline), 100).state, SentinelState::Unknown);
+        assert_eq!(
+            qualify(Some(&current), Some(&Deviation::NoBaseline), 100).state,
+            SentinelState::Unknown
+        );
     }
+
     #[test]
     fn threshold_exceeded_is_anomalous() {
         let previous = Observation::new("SYSTEM_RAM", 1, 80);
@@ -66,6 +95,7 @@ mod tests {
         let d = compare(Some(&previous), &current);
         assert_eq!(qualify(Some(&current), Some(&d), 100).state, SentinelState::Anomalous);
     }
+
     #[test]
     fn changed_but_below_threshold_is_degraded() {
         let previous = Observation::new("SYSTEM_RAM", 1, 80);
@@ -73,6 +103,7 @@ mod tests {
         let d = compare(Some(&previous), &current);
         assert_eq!(qualify(Some(&current), Some(&d), 100).state, SentinelState::Degraded);
     }
+
     #[test]
     fn invalid_ordering_is_unknown_even_above_threshold() {
         let previous = Observation::new("SYSTEM_RAM", 2, 80);
@@ -80,6 +111,7 @@ mod tests {
         let d = compare(Some(&previous), &current);
         assert_eq!(qualify(Some(&current), Some(&d), 100).state, SentinelState::Unknown);
     }
+
     #[test]
     fn unchanged_below_threshold_is_normal() {
         let previous = Observation::new("SYSTEM_RAM", 1, 80);
