@@ -3,7 +3,7 @@ char = { 'a'..'z' | 'A'..'Z' | "_" }
 digit = { '0'..'9' }
 
 identifier = { char ~ (char | digit)* }
-string_literal = { """ ~ ( !""" ~ ANY )* ~ """ }
+string_literal = { "\"" ~ ( !"\"" ~ ANY )* ~ "\"" }
 
 send_stmt = { "send" ~ "(" ~ string_literal ~ ")" ~ ";" }
 if_stmt = { "if" ~ "(" ~ identifier ~ ")" ~ "{" ~ body ~ "}" }
