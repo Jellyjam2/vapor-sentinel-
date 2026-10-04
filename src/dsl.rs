@@ -3,6 +3,7 @@
 //! The DSL produces declarative notification requests only. It has no
 //! filesystem or network side effects.
 
+use crate::observation::Observation;
 use anyhow::{bail, Context, Result};
 use pest::Parser;
 use pest_derive::Parser;
@@ -12,16 +13,63 @@ const MAX_NESTING_DEPTH: usize = 16;
 const MAX_MESSAGES: usize = 64;
 const MAX_MESSAGE_BYTES: usize = 1024;
 const MAX_IDENTIFIER_BYTES: usize = 128;
+const MAX_LITERAL_VALUE: u64 = 1_000_000_000_000;
 
 #[derive(Parser)]
 #[grammar = "vapor.pest"]
 pub struct VaporParser;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ComparisonOp {
+    GreaterThan,
+    GreaterThanOrEqual,
+    LessThan,
+    LessThanOrEqual,
+    Equal,
+    NotEqual,
+}
+
+impl ComparisonOp {
+    fn matches(&self, actual: u64, expected: u64) -> bool {
+        match self {
+            Self::GreaterThan => actual > expected,
+            Self::GreaterThanOrEqual => actual >= expected,
+            Self::LessThan => actual < expected,
+            Self::LessThanOrEqual => actual <= expected,
+            Self::Equal => actual == expected,
+            Self::NotEqual => actual != expected,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Condition {
+    Metric(String),
+    Comparison {
+        metric: String,
+        operator: ComparisonOp,
+        value: u64,
+    },
+}
+
+impl Condition {
+    fn matches(&self, observation: &Observation) -> bool {
+        match self {
+            Self::Metric(metric) => observation.metric() == metric,
+            Self::Comparison {
+                metric,
+                operator,
+                value,
+            } => observation.metric() == metric && operator.matches(observation.value(), *value),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Statement {
     Send(String),
-    IfMetric {
-        metric: String,
+    If {
+        condition: Condition,
         body: Vec<Statement>,
     },
 }
@@ -32,21 +80,25 @@ pub struct Program {
 }
 
 impl Program {
-    pub fn requested_messages(&self, metric: &str) -> Vec<String> {
-        fn collect(statements: &[Statement], metric: &str, output: &mut Vec<String>) {
+    pub fn requested_messages(&self, observation: &Observation) -> Vec<String> {
+        fn collect(
+            statements: &[Statement],
+            observation: &Observation,
+            output: &mut Vec<String>,
+        ) {
             for statement in statements {
                 match statement {
                     Statement::Send(message) => output.push(message.clone()),
-                    Statement::IfMetric { metric: name, body } if name == metric => {
-                        collect(body, metric, output);
+                    Statement::If { condition, body } if condition.matches(observation) => {
+                        collect(body, observation, output);
                     }
-                    Statement::IfMetric { .. } => {}
+                    Statement::If { .. } => {}
                 }
             }
         }
 
         let mut output = Vec::new();
-        collect(&self.statements, metric, &mut output);
+        collect(&self.statements, observation, &mut output);
         output
     }
 }
@@ -106,25 +158,87 @@ fn parse_statement(
             }
 
             let mut inner = pair.into_inner();
-            let metric = inner
-                .next()
-                .context("if statement missing metric")?
-                .as_str()
-                .to_owned();
-
-            if metric.len() > MAX_IDENTIFIER_BYTES {
-                bail!("Vapor metric identifier exceeds {} bytes", MAX_IDENTIFIER_BYTES);
-            }
+            let condition = parse_condition(
+                inner
+                    .next()
+                    .context("if statement missing condition")?,
+            )?;
 
             let body = parse_body(
                 inner.next().context("if statement missing body")?,
                 depth + 1,
                 message_count,
             )?;
-            Ok(Statement::IfMetric { metric, body })
+
+            Ok(Statement::If { condition, body })
         }
         rule => bail!("unsupported Vapor rule: {rule:?}"),
     }
+}
+
+fn parse_condition(pair: pest::iterators::Pair<'_, Rule>) -> Result<Condition> {
+    let mut inner = pair.into_inner();
+    let first = inner.next().context("if condition is empty")?;
+
+    match first.as_rule() {
+        Rule::identifier => {
+            let metric = first.as_str().to_owned();
+            validate_identifier(&metric)?;
+            Ok(Condition::Metric(metric))
+        }
+        Rule::comparison => {
+            let mut comparison = first.into_inner();
+            let metric = comparison
+                .next()
+                .context("comparison missing metric")?
+                .as_str()
+                .to_owned();
+            validate_identifier(&metric)?;
+
+            let operator = match comparison
+                .next()
+                .context("comparison missing operator")?
+                .as_str()
+            {
+                ">" => ComparisonOp::GreaterThan,
+                ">=" => ComparisonOp::GreaterThanOrEqual,
+                "<" => ComparisonOp::LessThan,
+                "<=" => ComparisonOp::LessThanOrEqual,
+                "==" => ComparisonOp::Equal,
+                "!=" => ComparisonOp::NotEqual,
+                other => bail!("unsupported comparison operator: {other}"),
+            };
+
+            let value_text = comparison
+                .next()
+                .context("comparison missing numeric value")?;
+            let value = value_text
+                .as_str()
+                .parse::<u64>()
+                .context("comparison value is not a valid unsigned integer")?;
+
+            if value > MAX_LITERAL_VALUE {
+                bail!("Vapor comparison literal exceeds {}", MAX_LITERAL_VALUE);
+            }
+
+            Ok(Condition::Comparison {
+                metric,
+                operator,
+                value,
+            })
+        }
+        rule => bail!("unsupported Vapor condition: {rule:?}"),
+    }
+}
+
+fn validate_identifier(metric: &str) -> Result<()> {
+    if metric.len() > MAX_IDENTIFIER_BYTES {
+        bail!(
+            "Vapor metric identifier exceeds {} bytes",
+            MAX_IDENTIFIER_BYTES
+        );
+    }
+    Ok(())
 }
 
 fn unquote(value: &str) -> Result<String> {
@@ -145,6 +259,9 @@ fn unquote(value: &str) -> Result<String> {
     if message.chars().any(char::is_control) {
         bail!("Vapor notification message contains control characters");
     }
+    if message.contains('\') {
+        bail!("Vapor notification message does not support escape sequences");
+    }
 
     Ok(message.to_owned())
 }
@@ -152,22 +269,48 @@ fn unquote(value: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anyhow::Result;
+
+    fn observation(value: u64) -> Observation {
+        Observation::new("SYSTEM_USED_MEMORY_MIB", 1, value).unwrap()
+    }
 
     #[test]
-    fn parses_notification_inside_matching_metric_rule() -> anyhow::Result<()> {
+    fn parses_matching_metric_selector() -> Result<()> {
         let program = parse_program(
             r#"vapor sentinel() {
                 if(SYSTEM_USED_MEMORY_MIB) {
-                    send("memory threshold breached");
+                    send("memory alert");
                 }
             }"#,
         )?;
 
         assert_eq!(
-            program.requested_messages("SYSTEM_USED_MEMORY_MIB"),
-            vec!["memory threshold breached"]
+            program.requested_messages(&observation(150)),
+            vec!["memory alert"]
         );
-        assert!(program.requested_messages("OTHER_METRIC").is_empty());
+        assert!(program.requested_messages(&Observation::new("OTHER_METRIC", 1, 150).unwrap()).is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn comparisons_are_evaluated_against_observation_values() -> Result<()> {
+        let program = parse_program(
+            r#"vapor sentinel() {
+                if(SYSTEM_USED_MEMORY_MIB >= 100) {
+                    send("high");
+                }
+                if(SYSTEM_USED_MEMORY_MIB < 100) {
+                    send("low");
+                }
+                if(SYSTEM_USED_MEMORY_MIB == 120) {
+                    send("exact");
+                }
+            }"#,
+        )?;
+
+        assert_eq!(program.requested_messages(&observation(120)), vec!["high", "exact"]);
+        assert_eq!(program.requested_messages(&observation(80)), vec!["low"]);
         Ok(())
     }
 
@@ -178,7 +321,6 @@ mod tests {
                 send("unsupported");
             }
         }"#;
-
         assert!(parse_program(source).is_err());
     }
 
@@ -187,7 +329,6 @@ mod tests {
         let source = r#"vapor sentinel() {
             execute();
         }"#;
-
         assert!(parse_program(source).is_err());
     }
 
@@ -196,7 +337,6 @@ mod tests {
         let source = r#"vapor sentinel() {
             amount = 1000;
         }"#;
-
         assert!(parse_program(source).is_err());
     }
 
@@ -205,13 +345,18 @@ mod tests {
         let source = r#"vapor sentinel() {
             send("");
         }"#;
-
         assert!(parse_program(source).is_err());
     }
 
     #[test]
     fn control_character_in_notification_message_is_rejected() {
-        let source = "vapor sentinel() { send(\"bad\0message\"); }";
+        let source = "vapor sentinel() { send("bad\0message"); }";
+        assert!(parse_program(source).is_err());
+    }
+
+    #[test]
+    fn escaped_notification_syntax_is_rejected() {
+        let source = r#"vapor sentinel() { send("badmessage"); }"#;
         assert!(parse_program(source).is_err());
     }
 
@@ -221,18 +366,17 @@ mod tests {
         for _ in 0..=MAX_NESTING_DEPTH {
             source.push_str("if(SYSTEM_USED_MEMORY_MIB){");
         }
-        source.push_str("send(\"too deep\");");
+        source.push_str("send("too deep");");
         for _ in 0..=MAX_NESTING_DEPTH {
             source.push('}');
         }
-
         assert!(parse_program(&source).is_err());
     }
 
     #[test]
     fn oversized_source_is_rejected() {
         let source = format!(
-            "vapor sentinel() {{ send(\"{}\"); }}",
+            "vapor sentinel() {{ send("{}"); }}",
             "x".repeat(MAX_SOURCE_BYTES)
         );
         assert!(parse_program(&source).is_err());
@@ -242,18 +386,26 @@ mod tests {
     fn too_many_messages_are_rejected() {
         let mut source = String::from("vapor sentinel() { ");
         for _ in 0..=MAX_MESSAGES {
-            source.push_str("send(\"alert\");");
+            source.push_str("send("alert");");
         }
         source.push('}');
-
         assert!(parse_program(&source).is_err());
     }
 
     #[test]
     fn oversized_message_is_rejected() {
         let source = format!(
-            "vapor sentinel() {{ send(\"{}\"); }}",
+            "vapor sentinel() {{ send("{}"); }}",
             "x".repeat(MAX_MESSAGE_BYTES)
+        );
+        assert!(parse_program(&source).is_err());
+    }
+
+    #[test]
+    fn oversized_comparison_literal_is_rejected() {
+        let source = format!(
+            "vapor sentinel() {{ if(SYSTEM_USED_MEMORY_MIB > {}) {{ send("too large"); }} }}",
+            MAX_LITERAL_VALUE + 1
         );
         assert!(parse_program(&source).is_err());
     }
