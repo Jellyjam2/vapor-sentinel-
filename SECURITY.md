@@ -1,127 +1,81 @@
 # Security Policy & Responsible Use
 
-## Product Ownership
-
 **Vapor Sentinel is developed and maintained by Titan Black Swan TECHNOLOGIES.**
 
-This repository describes a defensive monitoring product. Product ownership and maintenance do not change the authorized-use boundary defined below.
+Vapor Sentinel is a defensive monitoring product. It is intended for authorized administration, monitoring, testing, and security research.
 
-## Overview
+## Authorized use
 
-Vapor Sentinel is a **defensive system monitoring engine** designed for authorized security research and protective system administration. This policy outlines core responsibilities for all users and contributors.
+Use the software only on systems for which you have appropriate authorization.
 
----
+Examples include:
 
-## Authorized Use Only
+- systems you own;
+- infrastructure operated by your organization;
+- controlled test environments;
+- security research performed with explicit permission.
 
-✅ **Permitted Applications:**
-- Local system monitoring on devices you own or have explicit written authorization to monitor
-- Defensive research in controlled environments (test VMs, isolated networks)
-- Automated incident response for validator nodes and infrastructure you operate
-- Security testing with prior consent from all stakeholders
+Do not use Vapor Sentinel for unauthorized monitoring, covert surveillance, persistence, access-control bypass, credential theft, or data exfiltration.
 
-❌ **Explicitly Prohibited:**
-- Unauthorized surveillance or monitoring of any system or user
-- Covert installation or stealth persistence mechanisms
-- Monitoring without informed consent from affected parties
-- Use on third-party systems without explicit written permission
-- Bypassing access controls or authentication mechanisms
-- Data exfiltration or unauthorized data collection
+## Current security boundaries
 
----
+### Observation and evidence
 
-## Core Security Principles
+The monitoring path is designed around explicit typed observations:
 
-### 1. **No Stealth, No Persistence**
-- Vapor Sentinel operates transparently with clear logging
-- No mechanisms for hiding execution, suppressing logs, or establishing persistence
-- System administrators and users must always be aware of monitoring activity
-- Clean exit via `EXIT` file signal—no background daemons maintained without consent
+Observation -> Deviation -> Qualification -> EvidenceRecord -> ActionPlan
 
-### 2. **Explicit Approval Required**
-- Obtain written authorization before deploying on any system
-- Clearly document stakeholder consent for each monitored environment
-- Provide users/operators with disable/exit mechanisms
-- Honor user requests to cease monitoring immediately
+Qualification is fail-closed. Missing baselines and invalid observation ordering are represented as Unknown rather than silently treated as normal.
 
-### 3. **Memory Safety & Data Protection**
-- All sensitive data (keys, memory contents) are securely zeroized on exit
-- `zeroize` crate with derive features ensure memory is overwritten
-- No sensitive data persisted to disk without encryption
-- Regular security audits of memory access patterns
+### External actions
 
-### 4. **Bounded Destruction**
-- File shredding (`shred` action) only targets explicitly named files
-- No recursive directory deletion or destructive defaults
-- User provides explicit file paths; no wildcard expansion
-- Verification of file existence before shredding operations
+External side effects are isolated in src/actions.rs.
 
-### 5. **Transparent Alerting**
-- Webhook alerts contain only metadata (thresholds, timestamps, process names)
-- No user data, system secrets, or sensitive credentials in alert payloads
-- Webhook endpoints must use HTTPS with certificate validation
-- Users can audit all generated alerts before sending
+Webhook notification requires both:
 
----
+1. VAPOR_SENTINEL_ENABLE_ACTIONS=1
+2. an HTTPS VAPOR_SENTINEL_WEBHOOK_URL
 
-## Deployment Guidelines
+Action errors are surfaced rather than discarded.
 
-### Before Deployment:
-1. Review the monitoring configuration and expected behavior
-2. Obtain written authorization from all affected stakeholders
-3. Document retention policies for alerts and logs
-4. Establish clear incident response procedures
+The current implementation does not perform filesystem deletion. In particular, Vapor Sentinel does not claim secure shredding or guaranteed unrecoverable file destruction.
 
-### During Deployment:
-1. Operate with full transparency—log all monitoring actions
-2. Make exit mechanisms easily accessible
-3. Periodically validate that monitoring is still authorized
-4. Monitor alert delivery and effectiveness
+### Memory handling
 
-### After Deployment:
-1. Maintain audit logs of all monitoring activities
-2. Promptly respond to authorization revocations
-3. Securely delete all retained data upon exit
-4. Document lessons learned for future deployments
+The current runtime does not claim cryptographic memory zeroization. The previous zeroization dependency has been removed because the implemented runtime does not provide that guarantee.
 
----
+Do not treat ordinary Rust ownership, collection clearing, or process termination as proof of secure memory erasure.
 
-## Contribution Standards
+### DSL boundary
 
-Contributors must:
-- Acknowledge that Vapor Sentinel is for **authorized, defensive use only**
-- Avoid adding stealth, persistence, or evasion features
-- Document security implications of all changes
-- Follow secure coding practices (input validation, bounds checking, safe memory handling)
-- Pass security review before merge
+The Vapor DSL intentionally supports a small set of declarative notification constructs. Unsupported constructs such as loops, assignments, and generic executable statements are rejected rather than silently ignored.
 
-### Pull Request Checklist:
-- [ ] No unauthorized surveillance features
-- [ ] No persistence mechanisms added
-- [ ] Memory safety verified (no data leaks)
-- [ ] Secure defaults enforced
-- [ ] Security implications documented
+The DSL itself does not obtain external authority.
 
----
+## Security assumptions
 
-## Incident Reporting
+This project does not claim to prevent compromise of the host operating system, kernel, hypervisor, firmware, or physical environment.
 
-**To report a security vulnerability or misuse concern:**
-1. Email: [security contact to be added]
-2. Do not open public issues for security problems
-3. Allow 30 days for response and fix deployment
-4. Coordinate disclosure with maintainers
+It is not a secure enclave, EDR replacement, forensic guarantee, or universal intrusion-prevention mechanism.
 
----
+Security claims must be tied to behavior that is implemented and tested in the repository.
 
-## Legal Disclaimer
+## Deployment guidance
 
-**Vapor Sentinel is provided as-is for authorized, lawful uses only.** Users are solely responsible for ensuring compliance with all applicable laws and regulations in their jurisdiction. Unauthorized surveillance, wiretapping, or unauthorized system access may violate criminal and civil law.
+Before deployment:
 
-The maintainers assume no liability for misuse of this tool. Users accept full responsibility for all consequences arising from their use of Vapor Sentinel.
+1. establish authorization for the monitored environment;
+2. review the configured metric and threshold;
+3. keep external actions disabled until the destination and operational behavior are reviewed;
+4. test the one-shot path in a controlled environment;
+5. retain resulting evidence according to your organization's policy.
 
----
+## Reporting vulnerabilities
 
-## Questions?
+Please report security vulnerabilities privately to the project maintainers rather than publishing sensitive exploit details in a public issue.
 
-If you have questions about responsible use or deployment authorization, please contact the maintainers before proceeding.
+A dedicated security contact will be published when the commercial release process establishes one.
+
+## Legal
+
+Vapor Sentinel is provided for lawful, authorized defensive use. Operators are responsible for compliance with applicable laws, contracts, policies, and monitoring-consent requirements.

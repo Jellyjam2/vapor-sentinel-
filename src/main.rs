@@ -8,7 +8,7 @@ use vapor_project::{
     dsl::{self, Program},
     evidence::EvidenceRecord,
     observation::Observation,
-    policy::{self, ActionPlan},
+    policy,
 };
 
 const MEMORY_METRIC: &str = "SYSTEM_USED_MEMORY_MB";
@@ -99,6 +99,5 @@ fn main() -> Result<()> {
         thread::sleep(Duration::from_secs(POLL_INTERVAL_SECS));
     }
 
-    let _ = ActionPlan::NoAction;
     Ok(())
 }

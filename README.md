@@ -2,27 +2,84 @@
 
 **Vapor Sentinel is a Titan Black Swan TECHNOLOGIES product.**
 
-A high-performance system monitoring engine built in Rust using the Vapor custom grammar.
+Vapor Sentinel is a Rust-based defensive monitoring and evidence engine. It observes a system metric, produces a deterministic observation sequence, compares observations, qualifies the resulting state, records evidence, and derives a side-effect-free policy plan.
 
-## Product Ownership
+## Current architecture
 
-**Company:** Titan Black Swan TECHNOLOGIES  
-**Product:** Vapor Sentinel  
+SYSTEM OBSERVATION
+        |
+        v
+Observation
+        |
+        v
+DEVIATION
+        |
+        v
+QUALIFICATION
+        |
+        v
+EVIDENCE RECORD
+        |
+        v
+POLICY PLAN
+        |
+        +----> OPTIONAL ACTION EXECUTOR
+        |
+        v
+OPERATOR OUTPUT
+
+The core boundaries are deliberate:
+
+- Observation is not qualification.
+- Qualification is not authority.
+- Evidence is not an action.
+- Policy is not execution.
+- External network effects are disabled unless explicitly enabled and configured.
+
+## Product ownership
+
+**Company:** Titan Black Swan TECHNOLOGIES
+**Product:** Vapor Sentinel
 **Position:** Defensive system monitoring and evidence-driven sentinel infrastructure.
 
-Project Highlights
-Custom DSL: Uses the Pest parser to read and execute specialized commands.
-Real-time Monitoring: Tracks system RAM and triggers automated responses like alerts and file shredding.
-Highly Efficient: Developed and fully tested on an Intel i3 with 4GB RAM, demonstrating extreme lightweight performance.
+## What is implemented
 
-Web3 Infrastructure & Use-Case
-In the decentralized ecosystem, **Validator Nodes** and **RPC Providers** must maintain 100% uptime. A sudden "Out of Memory" (OOM) error can lead to "slashing" penalties or network downtime.
+- Rust monitoring runtime using sysinfo
+- Canonical Observation records with sequence numbers
+- Deterministic deviation classification
+- Fail-closed qualification (Unknown when evidence is insufficient or invalid)
+- Serializable EvidenceRecord
+- Pure ActionPlan policy boundary
+- Restricted Vapor DSL parsed with Pest
+- Explicit rejection of unsupported DSL constructs
+- Optional HTTPS webhook notification through an isolated action module
+- One-shot execution mode for bounded demonstrations and testing
 
-**Vapor Sentinel** is designed as a **Sidecar Security Engine** for Web3 infrastructure:
-*   **Automated Node Recovery:** If a Solana or Ethereum validator exceeds safe RAM thresholds, the Sentinel can automatically **`shred`** non-critical archived logs to prevent a system crash.
-*   **Instant On-Chain Alerting:** Using the **`send`** command, operators receive real-time "Signal Bursts" via webhooks the millisecond a threshold is breached.
-*   **Zero-Knowledge Forensics:** By using **`zeroize`**, the Sentinel ensures that even if the host machine is compromised, no sensitive system metadata remains in the "Hardened Vault" for attackers to recover.
+## Current monitoring metric
 
-Future Roadmap
-*   **Sandboxed Logic:** V2 will implement **Wasmtime** to allow developers to deploy custom, hardware-agnostic 'Sentinel Scripts' in a secure, isolated environment.
-*   **Hardware-Level Toggles:** Integrating `region` for advanced memory protection at the page level.
+The executable currently observes SYSTEM_USED_MEMORY_MB.
+
+This represents system memory currently reported as used by sysinfo, converted to MiB.
+
+The current sentinel threshold is 100 MiB. This is an implementation default, not a claim about a universal safe operating threshold.
+
+## Action safety
+
+Network notification is opt-in:
+
+VAPOR_SENTINEL_ENABLE_ACTIONS=1
+VAPOR_SENTINEL_WEBHOOK_URL=https://example.invalid/endpoint
+
+Without the enable flag and HTTPS endpoint, notification is skipped.
+
+Vapor Sentinel does not currently implement secure file shredding or guaranteed memory zeroization. The current release path intentionally avoids destructive filesystem actions.
+
+## Verification status
+
+The repository uses CI for formatting, tests, Clippy, release builds, and dependency auditing.
+
+A green CI run is necessary but not sufficient for a commercial release. Runtime integration, source reinspection, security review, and product documentation must also agree with the implementation.
+
+## Authorized defensive use
+
+Use Vapor Sentinel only on systems and infrastructure you own or are explicitly authorized to monitor. See SECURITY.md for the responsible-use boundary.
