@@ -159,9 +159,7 @@ fn parse_statement(
 
             let mut inner = pair.into_inner();
             let condition = parse_condition(
-                inner
-                    .next()
-                    .context("if statement missing condition")?,
+                inner.next().context("if statement missing condition")?,
             )?;
 
             let body = parse_body(
@@ -209,10 +207,9 @@ fn parse_condition(pair: pest::iterators::Pair<'_, Rule>) -> Result<Condition> {
                 other => bail!("unsupported comparison operator: {other}"),
             };
 
-            let value_text = comparison
+            let value = comparison
                 .next()
-                .context("comparison missing numeric value")?;
-            let value = value_text
+                .context("comparison missing numeric value")?
                 .as_str()
                 .parse::<u64>()
                 .context("comparison value is not a valid unsigned integer")?;
@@ -259,7 +256,7 @@ fn unquote(value: &str) -> Result<String> {
     if message.chars().any(char::is_control) {
         bail!("Vapor notification message contains control characters");
     }
-    if message.contains('\') {
+    if message.contains('\\') {
         bail!("Vapor notification message does not support escape sequences");
     }
 
@@ -289,7 +286,9 @@ mod tests {
             program.requested_messages(&observation(150)),
             vec!["memory alert"]
         );
-        assert!(program.requested_messages(&Observation::new("OTHER_METRIC", 1, 150).unwrap()).is_empty());
+        assert!(program
+            .requested_messages(&Observation::new("OTHER_METRIC", 1, 150).unwrap())
+            .is_empty());
         Ok(())
     }
 
@@ -309,7 +308,10 @@ mod tests {
             }"#,
         )?;
 
-        assert_eq!(program.requested_messages(&observation(120)), vec!["high", "exact"]);
+        assert_eq!(
+            program.requested_messages(&observation(120)),
+            vec!["high", "exact"]
+        );
         assert_eq!(program.requested_messages(&observation(80)), vec!["low"]);
         Ok(())
     }
@@ -350,13 +352,13 @@ mod tests {
 
     #[test]
     fn control_character_in_notification_message_is_rejected() {
-        let source = "vapor sentinel() { send("bad\0message"); }";
+        let source = "vapor sentinel() { send(\"bad\0message\"); }";
         assert!(parse_program(source).is_err());
     }
 
     #[test]
     fn escaped_notification_syntax_is_rejected() {
-        let source = r#"vapor sentinel() { send("badmessage"); }"#;
+        let source = r#"vapor sentinel() { send("bad\message"); }"#;
         assert!(parse_program(source).is_err());
     }
 
@@ -366,7 +368,7 @@ mod tests {
         for _ in 0..=MAX_NESTING_DEPTH {
             source.push_str("if(SYSTEM_USED_MEMORY_MIB){");
         }
-        source.push_str("send("too deep");");
+        source.push_str("send(\"too deep\");");
         for _ in 0..=MAX_NESTING_DEPTH {
             source.push('}');
         }
@@ -376,7 +378,7 @@ mod tests {
     #[test]
     fn oversized_source_is_rejected() {
         let source = format!(
-            "vapor sentinel() {{ send("{}"); }}",
+            "vapor sentinel() {{ send(\"{}\"); }}",
             "x".repeat(MAX_SOURCE_BYTES)
         );
         assert!(parse_program(&source).is_err());
@@ -386,7 +388,7 @@ mod tests {
     fn too_many_messages_are_rejected() {
         let mut source = String::from("vapor sentinel() { ");
         for _ in 0..=MAX_MESSAGES {
-            source.push_str("send("alert");");
+            source.push_str("send(\"alert\");");
         }
         source.push('}');
         assert!(parse_program(&source).is_err());
@@ -395,7 +397,7 @@ mod tests {
     #[test]
     fn oversized_message_is_rejected() {
         let source = format!(
-            "vapor sentinel() {{ send("{}"); }}",
+            "vapor sentinel() {{ send(\"{}\"); }}",
             "x".repeat(MAX_MESSAGE_BYTES)
         );
         assert!(parse_program(&source).is_err());
@@ -404,7 +406,7 @@ mod tests {
     #[test]
     fn oversized_comparison_literal_is_rejected() {
         let source = format!(
-            "vapor sentinel() {{ if(SYSTEM_USED_MEMORY_MIB > {}) {{ send("too large"); }} }}",
+            "vapor sentinel() {{ if(SYSTEM_USED_MEMORY_MIB > {}) {{ send(\"too large\"); }} }}",
             MAX_LITERAL_VALUE + 1
         );
         assert!(parse_program(&source).is_err());
