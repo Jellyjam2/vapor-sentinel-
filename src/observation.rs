@@ -11,6 +11,10 @@ pub struct Observation {
 
 impl Observation {
     pub fn new(metric: impl Into<String>, sequence: u64, value: u64) -> Self {
-        Self { metric: metric.into(), sequence, value }
+        Self {
+            metric: metric.into(),
+            sequence,
+            value,
+        }
     }
 }
