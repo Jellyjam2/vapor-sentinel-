@@ -86,8 +86,8 @@ mod tests {
     use crate::qualification::SentinelState;
 
     fn evidence_with_state(state: SentinelState) -> EvidenceRecord {
-        let previous = Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 80);
-        let current = Observation::new("SYSTEM_USED_MEMORY_MIB", 2, 120);
+        let previous = Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 80).unwrap();
+        let current = Observation::new("SYSTEM_USED_MEMORY_MIB", 2, 120).unwrap();
         let evidence = EvidenceRecord::evaluate(Some(&previous), &current, 100);
 
         if state == SentinelState::Anomalous {
@@ -95,7 +95,7 @@ mod tests {
         } else {
             EvidenceRecord::evaluate(
                 Some(&previous),
-                &Observation::new("SYSTEM_USED_MEMORY_MIB", 2, 80),
+                &Observation::new("SYSTEM_USED_MEMORY_MIB", 2, 80).unwrap(),
                 100,
             )
         }
@@ -116,7 +116,7 @@ mod tests {
     fn no_action_is_always_skipped() {
         let evidence = EvidenceRecord::evaluate(
             None,
-            &Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 120),
+            &Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 120).unwrap(),
             100,
         );
         assert_eq!(
