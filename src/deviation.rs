@@ -19,23 +19,23 @@ pub fn compare(previous: Option<&Observation>, current: &Observation) -> Deviati
         return Deviation::NoBaseline;
     };
 
-    if previous.metric != current.metric {
+    if previous.metric() != current.metric() {
         return Deviation::MetricMismatch;
     }
-    if current.sequence == previous.sequence {
+    if current.sequence() == previous.sequence() {
         return Deviation::DuplicateSequence;
     }
-    if current.sequence < previous.sequence {
+    if current.sequence() < previous.sequence() {
         return Deviation::OutOfOrderSequence;
     }
 
-    match current.value.cmp(&previous.value) {
+    match current.value().cmp(&previous.value()) {
         std::cmp::Ordering::Equal => Deviation::Unchanged,
         std::cmp::Ordering::Greater => Deviation::Increased {
-            delta: current.value - previous.value,
+            delta: current.value() - previous.value(),
         },
         std::cmp::Ordering::Less => Deviation::Decreased {
-            delta: previous.value - current.value,
+            delta: previous.value() - current.value(),
         },
     }
 }
