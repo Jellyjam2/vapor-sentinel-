@@ -1,4 +1,8 @@
 //! Canonical observations emitted by the monitoring boundary.
+//!
+//! The runtime observation source maintains a monotonically increasing
+//! sequence. The observation record itself carries the sequence value;
+//! ordering between records is validated by the deviation layer.
 
 use serde::Serialize;
 
