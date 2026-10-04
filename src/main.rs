@@ -1,19 +1,19 @@
 use anyhow::{Context, Result};
 use serde_json::to_string;
-use std::{env, thread, time::Duration};
+use std::{env, fs, path::Path, thread, time::Duration};
 use sysinfo::{ProcessExt, System, SystemExt};
 
 use vapor_project::{
     actions::{self, ActionExecution},
-    dsl::{self, Program},
+    config::{self, RuntimeConfig},
+    dsl::Program,
     evaluate,
     observation::Observation,
 };
 
 const MEMORY_METRIC: &str = "SYSTEM_USED_MEMORY_MIB";
 const PROCESS_LOG_THRESHOLD_MIB: u64 = 50;
-const SENTINEL_THRESHOLD_MIB: u64 = 100;
-const POLL_INTERVAL_SECS: u64 = 4;
+
 struct MetricSource {
     sequence: u64,
 }
@@ -54,14 +54,11 @@ impl MetricSource {
     }
 }
 
-fn load_program() -> Result<Program> {
-    dsl::parse_program(
-        r#"vapor sentinel() {
-            if(SYSTEM_USED_MEMORY_MIB) {
-                send("CRITICAL_MEMORY_THRESHOLD");
-            }
-        }"#,
-    )
+fn load_program(path: &Path) -> Result<Program> {
+    let source = fs::read_to_string(path)
+        .with_context(|| format!("failed to read DSL policy {}", path.display()))?;
+    dsl::parse_program(&source)
+        .with_context(|| format!("failed to parse DSL policy {}", path.display()))
 }
 
 fn shutdown_requested() -> bool {
@@ -69,23 +66,31 @@ fn shutdown_requested() -> bool {
 }
 
 fn main() -> Result<()> {
+    let config_path = config::path_from_env();
+    let runtime_config = RuntimeConfig::load(&config_path)?;
+    let program = load_program(Path::new(&runtime_config.dsl_path))?;
     let mut sys = System::new();
     let mut source = MetricSource::new();
     let mut previous: Option<Observation> = None;
-    let program = load_program()?;
-    let oneshot = std::env::var("VAPOR_SENTINEL_ONESHOT").as_deref() == Ok("1");
+    let oneshot = env::var("VAPOR_SENTINEL_ONESHOT").as_deref() == Ok("1");
 
     println!("--- VAPOR SENTINEL ACTIVE ---");
     println!("Assurance path: observation -> deviation -> qualification -> evidence -> policy.");
+    println!(
+        "Config: threshold={}MiB poll_interval={}s dsl={}",
+        runtime_config.threshold_mib,
+        runtime_config.poll_interval_secs,
+        runtime_config.dsl_path
+    );
     println!("Network actions are disabled unless VAPOR_SENTINEL_ENABLE_ACTIONS=1.");
 
     loop {
         let current = source.observe(&mut sys)?;
-        let requested_messages = program.requested_messages(&current.metric);
+        let requested_messages = program.requested_messages(&current);
         let evaluation = evaluate(
             previous.as_ref(),
             &current,
-            SENTINEL_THRESHOLD_MIB,
+            runtime_config.threshold_mib,
             &requested_messages,
         );
 
@@ -104,25 +109,8 @@ fn main() -> Result<()> {
             break;
         }
 
-        thread::sleep(Duration::from_secs(POLL_INTERVAL_SECS));
+        thread::sleep(Duration::from_secs(runtime_config.poll_interval_secs));
     }
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn shutdown_requires_explicit_environment_value() {
-        assert!(!is_shutdown_value(Some("1"), false));
-        assert!(is_shutdown_value(Some("1"), true));
-        assert!(!is_shutdown_value(Some("0"), true));
-        assert!(!is_shutdown_value(None, true));
-    }
-
-    fn is_shutdown_value(value: Option<&str>, expected: bool) -> bool {
-        (value == Some("1")) == expected
-    }
 }
