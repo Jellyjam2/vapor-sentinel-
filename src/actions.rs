@@ -62,6 +62,7 @@ fn send_webhook(message: &str, evidence: &EvidenceRecord) -> Result<ActionExecut
 
     let agent = ureq::AgentBuilder::new()
         .timeout(Duration::from_secs(10))
+        .https_only(true)
         .redirects(0)
         .build();
 
