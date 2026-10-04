@@ -31,7 +31,11 @@ pub fn qualify(
     };
 
     match deviation {
-        Some(Deviation::DuplicateSequence | Deviation::OutOfOrderSequence | Deviation::MetricMismatch) => {
+        Some(
+            Deviation::DuplicateSequence
+            | Deviation::OutOfOrderSequence
+            | Deviation::MetricMismatch,
+        ) => {
             return Qualification {
                 state: SentinelState::Unknown,
                 reason: "invalid observation ordering or identity",
@@ -43,7 +47,11 @@ pub fn qualify(
                 reason: "baseline unavailable",
             };
         }
-        Some(Deviation::Unchanged | Deviation::Increased { .. } | Deviation::Decreased { .. }) => {}
+        Some(
+            Deviation::Unchanged
+            | Deviation::Increased { .. }
+            | Deviation::Decreased { .. },
+        ) => {}
     }
 
     if observation.value > threshold {
@@ -93,7 +101,10 @@ mod tests {
         let previous = Observation::new("SYSTEM_RAM", 1, 80);
         let current = Observation::new("SYSTEM_RAM", 2, 101);
         let d = compare(Some(&previous), &current);
-        assert_eq!(qualify(Some(&current), Some(&d), 100).state, SentinelState::Anomalous);
+        assert_eq!(
+            qualify(Some(&current), Some(&d), 100).state,
+            SentinelState::Anomalous
+        );
     }
 
     #[test]
@@ -101,7 +112,10 @@ mod tests {
         let previous = Observation::new("SYSTEM_RAM", 1, 80);
         let current = Observation::new("SYSTEM_RAM", 2, 90);
         let d = compare(Some(&previous), &current);
-        assert_eq!(qualify(Some(&current), Some(&d), 100).state, SentinelState::Degraded);
+        assert_eq!(
+            qualify(Some(&current), Some(&d), 100).state,
+            SentinelState::Degraded
+        );
     }
 
     #[test]
@@ -109,7 +123,10 @@ mod tests {
         let previous = Observation::new("SYSTEM_RAM", 2, 80);
         let current = Observation::new("SYSTEM_RAM", 1, 101);
         let d = compare(Some(&previous), &current);
-        assert_eq!(qualify(Some(&current), Some(&d), 100).state, SentinelState::Unknown);
+        assert_eq!(
+            qualify(Some(&current), Some(&d), 100).state,
+            SentinelState::Unknown
+        );
     }
 
     #[test]
@@ -117,6 +134,9 @@ mod tests {
         let previous = Observation::new("SYSTEM_RAM", 1, 80);
         let current = Observation::new("SYSTEM_RAM", 2, 80);
         let d = compare(Some(&previous), &current);
-        assert_eq!(qualify(Some(&current), Some(&d), 100).state, SentinelState::Normal);
+        assert_eq!(
+            qualify(Some(&current), Some(&d), 100).state,
+            SentinelState::Normal
+        );
     }
 }
