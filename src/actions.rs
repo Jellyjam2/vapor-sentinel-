@@ -81,14 +81,13 @@ fn send_webhook(message: &str, evidence: &EvidenceRecord) -> Result<ActionExecut
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::deviation::Deviation;
     use crate::observation::Observation;
     use crate::qualification::SentinelState;
 
     fn evidence_with_state(state: SentinelState) -> EvidenceRecord {
         let previous = Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 80);
         let current = Observation::new("SYSTEM_USED_MEMORY_MIB", 2, 120);
-        let mut evidence = EvidenceRecord::evaluate(Some(&previous), &current, 100);
+        let evidence = EvidenceRecord::evaluate(Some(&previous), &current, 100);
 
         if state == SentinelState::Anomalous {
             evidence
