@@ -67,6 +67,9 @@ mod tests {
         let current = Observation::new("SYSTEM_USED_MEMORY_MB", 1, 200);
         let evidence = EvidenceRecord::evaluate(None, &current, 100);
 
-        assert_eq!(plan(&evidence, &["must not fire".into()]), ActionPlan::NoAction);
+        assert_eq!(
+            plan(&evidence, &["must not fire".into()]),
+            ActionPlan::NoAction
+        );
     }
 }
