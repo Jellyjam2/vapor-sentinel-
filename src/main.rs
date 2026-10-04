@@ -115,14 +115,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn exit_marker_requires_exact_contents() {
-        assert!(is_exit_marker(EXIT_SENTINEL_MARKER));
-        assert!(!is_exit_marker(""));
-        assert!(!is_exit_marker("EXIT"));
-        assert!(!is_exit_marker("VAPOR_SENTINEL_EXIT"));
+    fn shutdown_requires_explicit_environment_value() {
+        assert!(!is_shutdown_value(Some("1"), false));
+        assert!(is_shutdown_value(Some("1"), true));
+        assert!(!is_shutdown_value(Some("0"), true));
+        assert!(!is_shutdown_value(None, true));
     }
 
-    fn is_exit_marker(contents: &str) -> bool {
-        contents == EXIT_SENTINEL_MARKER
+    fn is_shutdown_value(value: Option<&str>, expected: bool) -> bool {
+        (value == Some("1")) == expected
     }
 }
