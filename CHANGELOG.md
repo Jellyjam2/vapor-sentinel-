@@ -15,12 +15,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Optional HTTPS webhook notification through an explicit environment-controlled action boundary.
 - Bounded one-shot and explicit environment-controlled runtime termination modes for deterministic local execution and smoke testing.
 - A static, read-only dashboard preview using explicit sample data.
+- Validated runtime configuration and an external default DSL policy file.
 
 ### Changed
 - Runtime processing now follows the explicit assurance path:
   `observation -> deviation -> qualification -> evidence -> policy -> optional action`.
 - The runtime memory metric is named `SYSTEM_USED_MEMORY_MIB` and reflects system used memory reported by `sysinfo`.
 - Unsupported DSL constructs are rejected rather than silently ignored.
+- The DSL now evaluates bounded numeric comparison operators against the current observation.
 - CI cache keys now include dependency manifests and the Rust matrix entry, and test/build matrices continue on individual failures so platform evidence is not hidden by fail-fast cancellation.
 
 ### Removed
@@ -39,6 +41,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - A failing external notification returns an error but does not itself change the sentinel qualification state.
 - Reproducible dependency locking and further CI supply-chain hardening remain engineering work.
 - The runtime does not use a file-based EXIT sentinel.
+- Cryptographic policy signing is not yet implemented.
 
 ## Contributing
 
