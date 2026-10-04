@@ -6,9 +6,8 @@ use sysinfo::{ProcessExt, System, SystemExt};
 use vapor_project::{
     actions::{self, ActionExecution},
     dsl::{self, Program},
-    evidence::EvidenceRecord,
+    evaluate,
     observation::Observation,
-    policy,
 };
 
 const MEMORY_METRIC: &str = "SYSTEM_USED_MEMORY_MB";
@@ -78,14 +77,18 @@ fn main() -> Result<()> {
 
     loop {
         let current = source.observe(&mut sys)?;
-        let evidence = EvidenceRecord::evaluate(previous.as_ref(), &current, SENTINEL_THRESHOLD_MB);
         let requested_messages = program.requested_messages(&current.metric);
-        let plan = policy::plan(&evidence, &requested_messages);
+        let evaluation = evaluate(
+            previous.as_ref(),
+            &current,
+            SENTINEL_THRESHOLD_MB,
+            &requested_messages,
+        );
 
-        println!("EVIDENCE: {}", to_string(&evidence)?);
-        println!("POLICY: {}", to_string(&plan)?);
+        println!("EVIDENCE: {}", to_string(&evaluation.evidence)?);
+        println!("POLICY: {}", to_string(&evaluation.plan)?);
 
-        match actions::execute(&plan, &evidence) {
+        match actions::execute(&evaluation.plan, &evaluation.evidence) {
             Ok(ActionExecution::Executed) => println!("ACTION: notification executed"),
             Ok(ActionExecution::Skipped) => println!("ACTION: skipped"),
             Err(error) => eprintln!("ACTION ERROR: {error:#}"),
