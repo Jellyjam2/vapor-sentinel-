@@ -50,7 +50,7 @@ impl MetricSource {
             MEMORY_METRIC,
             self.sequence,
             used_memory_mib,
-        ))
+        )?)
     }
 }
 
