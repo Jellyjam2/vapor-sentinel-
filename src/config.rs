@@ -1,11 +1,11 @@
 use anyhow::{bail, Context, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{env, fs, path::{Path, PathBuf}};
 
 const MAX_POLL_INTERVAL_SECS: u64 = 86_400;
 const MAX_THRESHOLD_MIB: u64 = 1_000_000_000;
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct RuntimeConfig {
     pub threshold_mib: u64,
     pub poll_interval_secs: u64,
