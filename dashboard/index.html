@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07090d">
+  <title>Vapor Sentinel — Evidence Viewer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main class="shell">
+  <header class="topbar">
+    <div><div class="eyebrow">TITAN BLACK SWAN TECHNOLOGIES</div><h1>Vapor Sentinel</h1></div>
+    <div class="system-chip">LOCAL EVIDENCE VIEWER</div>
+  </header>
+  <section class="card panel import-panel" aria-label="Load evidence">
+    <label for="evidence-file">Open a recorded JSONL evidence file</label>
+    <input id="evidence-file" type="file" accept=".jsonl,.json,application/json,text/plain">
+    <p>Read-only, local to this browser. No live connection and no network actions. Maximum file size: 10 MiB.</p>
+    <p id="status" role="status" aria-live="polite">No evidence loaded.</p>
+  </section>
+  <nav class="navigation" aria-label="Recorded observations">
+    <button id="previous" disabled>Previous</button><span id="position">0 observations</span><button id="next" disabled>Next</button>
+  </nav>
+  <section class="hero-grid">
+    <article class="card">
+      <div class="label">RECORDED SENTINEL STATE</div>
+      <div class="state-row"><span id="state" class="state">NO DATA</span><span class="sequence">SEQ <strong id="sequence">—</strong></span></div>
+      <p id="reason">Load a recording to inspect decisions.</p>
+    </article>
+    <article class="card">
+      <div class="label" id="metric">METRIC</div>
+      <div class="metric"><span id="value">—</span> <small id="unit"></small></div>
+      <div class="metric-meta"><span id="timestamp">—</span><span id="deviation">—</span></div>
+    </article>
+  </section>
+  <section class="panel-grid">
+    <article class="card panel">
+      <h2>Evidence context</h2>
+      <dl class="facts">
+        <div><dt>Source</dt><dd id="source">—</dd></div>
+        <div><dt>Run</dt><dd id="run">—</dd></div>
+        <div><dt>Policy SHA-256</dt><dd id="policy">—</dd></div>
+        <div><dt>Mode</dt><dd id="mode">—</dd></div>
+      </dl>
+    </article>
+    <article class="card panel">
+      <h2>Notification decision</h2>
+      <dl class="facts">
+        <div><dt>Policy plan</dt><dd id="plan">—</dd></div>
+        <div><dt>Scheduling</dt><dd id="scheduling">—</dd></div>
+        <div><dt>Delivery</dt><dd id="delivery">—</dd></div>
+      </dl>
+      <p id="message">—</p>
+    </article>
+  </section>
+  <footer>Recorded observations are not proof of host integrity. Delivery is shown only when recorded.</footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

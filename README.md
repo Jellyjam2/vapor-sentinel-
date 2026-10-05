@@ -1,16 +1,130 @@
- Vapor Sentinel
-A high-performance system monitoring engine built in Rust using the Vapor custom grammar.
-Project Highlights
-Custom DSL: Uses the Pest parser to read and execute specialized commands.
-Real-time Monitoring: Tracks system RAM and triggers automated responses like alerts and file shredding.
-Highly Efficient: Developed and fully tested on an Intel i3 with 4GB RAM, demonstrating extreme lightweight performance.
-Web3 Infrastructure & Use-Case
-In the decentralized ecosystem, **Validator Nodes** and **RPC Providers** must maintain 100% uptime. A sudden "Out of Memory" (OOM) error can lead to "slashing" penalties or network downtime. 
+# Vapor Sentinel
 
-**Vapor Sentinel** is designed as a **Sidecar Security Engine** for Web3 infrastructure:
-*   **Automated Node Recovery:** If a Solana or Ethereum validator exceeds safe RAM thresholds, the Sentinel can automatically **`shred`** non-critical archived logs to prevent a system crash.
-*   **Instant On-Chain Alerting:** Using the **`send`** command, operators receive real-time "Signal Bursts" via webhooks the millisecond a threshold is breached.
-*   **Zero-Knowledge Forensics:** By using **`zeroize`**, the Sentinel ensures that even if the host machine is compromised, no sensitive system metadata remains in the "Hardened Vault" for attackers to recover.
-Future Roadmap
-*   **Sandboxed Logic:** V2 will implement **Wasmtime** to allow developers to deploy custom, hardware-agnostic 'Sentinel Scripts' in a secure, isolated environment.
-*   **Hardware-Level Toggles:** Integrating `region` for advanced memory protection at the page level.
+A small Rust monitor with inspectable policy decisions and optional HTTPS notifications.
+
+The runtime separates observation, deviation, qualification, evidence, policy, notification scheduling, and delivery. External network effects are disabled by default.
+
+## Run a deterministic demonstration
+
+Install Rust through rustup, clone this repository, and run from the repository root:
+
+```sh
+cargo test --locked
+cargo run --locked -- --check
+cargo run --locked -- --replay tests/fixtures/memory-sequence.json --output evidence.jsonl
+```
+
+The pinned toolchain is Rust 1.99.0. Viewer behavior tests additionally use Node.js 18 or newer. `Cargo.lock` records the dependency resolution.
+The replay produces `Unknown → Anomalous → Anomalous → Normal → Normal`.
+It schedules one alert, suppresses the repeated alert, then schedules one recovery.
+Replay **always disables network delivery**, even if the action environment flag is enabled.
+
+Open `dashboard/index.html` in a browser and choose the resulting `evidence.jsonl` file.
+The viewer reads the file locally and displays actual recorded decisions and delivery outcomes.
+It has no live connection and cannot execute actions.
+
+## Observe this machine
+
+```sh
+cargo build --locked --release
+./target/release/vapor_project --samples 2 --output evidence.jsonl
+```
+
+On Windows:
+
+```powershell
+.\target\release\vapor_project.exe --samples 2 --output evidence.jsonl
+```
+
+Omit `--samples` for continuous monitoring. Ctrl-C or SIGTERM requests shutdown and drains outstanding notification work. A network operation can take up to its configured ten-second request timeout.
+
+`VAPOR_SENTINEL_ONESHOT=1` takes **two samples**, so it exercises a baseline and a qualification. `VAPOR_SENTINEL_EXIT=1` is a deprecated launch-time alias; it is not a live stop switch.
+
+Stdout contains versioned JSONL only. Diagnostics go to stderr. `--output PATH` additionally appends the same records to a file without truncating existing data. Operators must manage disk capacity, rotation, permissions, and retention. This is a recording facility, not a tamper-evident database or durable notification queue.
+
+## Configure the policy
+
+Use `--config PATH` or `VAPOR_SENTINEL_CONFIG`; the default is `vapor-sentinel.json`.
+Paths inside configuration resolve relative to that configuration file.
+
+```json
+{
+  "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+  "poll_interval_secs": 4,
+  "notification_repeat_secs": 300,
+  "notification_retry_secs": 30,
+  "recovery_samples": 2,
+  "dsl_path": "policies/default.vapor"
+}
+```
+
+The default policy requests a notification when available system memory is at or below 10%:
+
+```text
+vapor sentinel() {
+    if(SYSTEM_AVAILABLE_MEMORY_PERCENT <= 10) {
+        send("LOW_AVAILABLE_SYSTEM_MEMORY");
+    }
+}
+```
+
+This is an example to calibrate for the monitored workload, not a universal safety threshold.
+The alternative adapter is `SYSTEM_USED_MEMORY_MIB`. Select it in `metric` and use that exact identifier in the policy.
+Available-memory percentage is integer percent (rounded down). Metrics reflect sysinfo's host/system view; container-limit-aware pressure detection is not claimed.
+
+**Migration from the earlier foundation:** remove `threshold_mib` from JSON and express the comparison in the DSL. Unknown configuration fields and unavailable metric names are rejected. There is no second hidden threshold that overrides a matching DSL rule.
+
+## Exact decision semantics
+
+- Comparisons `>`, `>=`, `<`, `<=`, `==`, and `!=` use their ordinary unsigned integer meanings.
+- Nested conditions must all match. `if(METRIC)` selects that metric regardless of its value. An unconditional `send` requests a notification on every valid evaluation; use comparisons for thresholds.
+- A first sample, duplicate, out-of-order sample, sequence gap, or metric mismatch is `Unknown` and cannot authorize a notification.
+- With a valid consecutive sample, any matching notification request yields `Anomalous`; no matching requests yields `Normal`.
+- A changing or decreasing measurement alone is not `Degraded`. That enum variant is reserved and is not emitted by the current qualifier.
+- Notifications repeat no faster than the configured interval for the same active message. Changed messages can start a new notification. Failures retry after the configured retry interval, using the next current evaluation.
+- Recovery requires consecutive normal samples and is a distinct notification type. Unknown samples do not count toward recovery. Recovery cannot authorize remediation; the only supported effect is notification.
+- Unknown monitoring status is explicit in local evidence and scheduling records. There is no separate remote monitor-health service.
+
+The parser rejects unsupported execution syntax and bounds file bytes, lexical tokens, message counts, aggregate message bytes, and nesting **before** recursive parsing. Policies and configuration remain deployment-controlled local inputs.
+
+## Enable optional notification
+
+Set both variables before launching live monitoring:
+
+```sh
+export VAPOR_SENTINEL_ENABLE_ACTIONS=1
+export VAPOR_SENTINEL_WEBHOOK_URL='https://your-approved-endpoint.example/webhook'
+```
+
+In PowerShell:
+
+```powershell
+$env:VAPOR_SENTINEL_ENABLE_ACTIONS="1"
+$env:VAPOR_SENTINEL_WEBHOOK_URL="https://your-approved-endpoint.example/webhook"
+```
+
+Missing or malformed enabled configuration fails startup. URLs require HTTPS and a host, with no embedded user/password or fragment. Redirects are disabled. Query/path tokens are allowed but are never printed in delivery error text.
+
+A bounded worker sends notifications independently of observation cadence. Delivery records distinguish delivered, disabled/skipped, and failed outcomes. On bounded execution, any recorded delivery failure yields a nonzero exit status. Scheduling and retry state are in memory; process restart does not resume unsent notifications or preserve cooldowns.
+
+## Evidence and replay
+
+Each evaluation includes schema version, event/run/source identity, observation time, policy SHA-256, metric/unit, matched messages, qualification reason, policy plan, scheduled plan, and scheduling status. Delivery records reference the evaluation event ID.
+
+The policy hash identifies exact bytes. It is not a signature or authentication guarantee. Source/run IDs are labels; host telemetry and wall time are not independently attested. Replay accepts a bounded JSON array of `{ "metric": ..., "sequence": ..., "value": ... }`; see the checked-in fixture. It reproduces decisions under the chosen policy. It does not verify signed historical evidence.
+
+For the complete current design, see [ARCHITECTURE.md](ARCHITECTURE.md), [threat model](docs/threat-model.md), and [security policy](SECURITY.md).
+
+## Verification and remaining work
+
+```sh
+cargo fmt --all -- --check
+cargo clippy --locked --all-targets --all-features -- -D warnings
+cargo test --locked --all-targets
+node --test tests/dashboard.test.cjs
+cargo build --locked --release
+```
+
+CI targets Linux, macOS, and Windows with the pinned compiler and locked dependencies. A workflow definition is not a claim that those platform runs have passed. See [verification notes](docs/verification.md) for the actual local checks.
+
+Remaining release work includes a real-environment pilot, service packaging, a maintainer-selected license and vulnerability reporting channel, operational benchmarks, live transport if needed, and independent security review. The future roadmap is not implemented capability.

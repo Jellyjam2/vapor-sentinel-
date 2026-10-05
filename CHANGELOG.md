@@ -1,61 +1,36 @@
 # Changelog
 
-All notable changes to Vapor Sentinel are documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
----
-
-## [0.1.0] - 2025-01-XX (Initial Release)
-
-### Added
-- **Core Monitoring Engine**: Real-time system RAM tracking with configurable thresholds
-- **Custom DSL (Pest Grammar)**: Domain-specific language for defining security actions:
-  - `send(message)` — Webhook-based alert delivery
-  - `shred(filepath)` — Secure file deletion with memory zeroization
-  - `if(VARIABLE) { body }` — Conditional logic based on system metrics
-  - `while(VARIABLE) { body }` — Looping constructs for repeated actions
-- **HardenedStore Data Structure**: HashMap-based state vault for monitoring metrics
-- **Process-Level Insights**: Identifies and reports processes consuming >50 MB RAM
-- **Memory Safety**: Integration with `zeroize` crate for secure memory cleanup
-- **Webhook Alerting**: JSON-formatted alerts sent to configurable endpoints via HTTPS
-- **EXIT Signal Control**: Graceful shutdown via `EXIT` file creation (4-second polling interval)
-- **Security-First Documentation**: SECURITY.md policy emphasizing authorized, defensive use only
-
-### Changed
-- None (initial release)
+## Unreleased — runtime correctness and verification repairs
 
 ### Fixed
-- None (initial release)
 
-### Security
-- Memory zeroization on exit prevents forensic recovery of sensitive data
-- No persistent logging of system state to disk
-- Explicit file paths only—no wildcard expansion or recursive deletion
-- Transparent operation with full audit trail capability
+- Executable imports/path formatting and stale Observation API calls in tests.
+- Recursive-parser crash: quote-aware structural limits are checked before Pest; file reads are capped.
+- Atomic identifier/number/string tokens, metric binding, and aggregate notification limits.
+- DSL comparisons now directly determine qualification, without a contradictory second threshold.
+- Ordinary metric changes/decreases no longer imply degraded health; sequence gaps become Unknown.
+- One-shot mode now observes both a baseline and an evaluation.
+- Repeated notifications are controlled by reminder and retry intervals, with separate debounced recovery events.
+- Slow HTTP delivery is moved off the observation thread; delivery failures are explicit and bounded runs exit unsuccessfully when delivery fails.
+- Configuration tests now exercise the actual loader and rejection paths.
 
-### Known Limitations
-- Webhook URL currently set to generic `https://webhook.site` (configure before production)
-- Memory threshold hardcoded to >100 MB (parameterization planned for v0.2.0)
-- No built-in encryption for alert transport (rely on HTTPS + TLS)
-- Wasmtime sandbox support deferred to v0.2.0
+### Added
 
-### Roadmap for v0.2.0
-- Parameterized configuration file support (TOML format)
-- Wasmtime WASM sandbox for isolated plugin execution
-- Hardware-level memory protection toggles (region crate enhancement)
-- Enhanced alerting with multi-destination support
-- Improved process filtering and correlation logic
+- Bounded replay CLI that always disables external actions, plus a recorded-memory fixture.
+- Versioned JSONL evaluation/delivery records, optional append-only recording, timestamps, run/source/event labels, and policy SHA-256.
+- Read-only browser import/viewing of real JSONL evidence and recorded delivery status.
+- Ctrl-C/SIGTERM shutdown; reusable HTTPS client, no redirects, URL validation, and credential-safe error text.
+- Committed dependency lockfile, pinned compiler, pinned CI action commits, least-privilege CI permissions, and executable smoke tests.
+- Regression tests for comparisons, nesting, metric typos, oversized aggregates, cooldown/recovery/retry, slow workers, config loading, recording, and replay.
+- Current threat model and verification instructions.
 
----
+### Migration
 
-## Contributing
+- Remove `threshold_mib` from JSON; place threshold comparisons in the policy.
+- The default metric is now SYSTEM_AVAILABLE_MEMORY_PERCENT with an illustrative <=10% policy. SYSTEM_USED_MEMORY_MIB remains selectable.
+- Action plans and execution outcomes use a versioned JSON representation; previous sample dashboard data is not the event contract.
+- VAPOR_SENTINEL_ONESHOT and the deprecated VAPOR_SENTINEL_EXIT alias take two samples.
 
-When contributing, please update this CHANGELOG with:
-- New features under `Added`
-- Breaking changes under `Changed`
-- Bug fixes under `Fixed`
-- Security-related updates under `Security`
+### Limitations
 
-Maintain the format and always document your changes before submitting a pull request.
+No authenticated telemetry, signed evidence, durable delivery queue, service installer, or live dashboard transport is claimed. Log retention and monitored-workload calibration are deployment responsibilities. License selection, a verified private reporting channel, real-environment benchmarks, pilot validation, and cross-platform CI results remain release requirements. See docs/verification.md for checks actually completed.
