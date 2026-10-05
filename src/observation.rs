@@ -24,10 +24,7 @@ impl Observation {
             bail!("observation metric cannot be empty");
         }
         if metric.len() > MAX_METRIC_BYTES {
-            bail!(
-                "observation metric exceeds {} bytes",
-                MAX_METRIC_BYTES
-            );
+            bail!("observation metric exceeds {} bytes", MAX_METRIC_BYTES);
         }
         if metric.chars().any(char::is_control) {
             bail!("observation metric contains control characters");

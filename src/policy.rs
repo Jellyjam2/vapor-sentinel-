@@ -4,10 +4,14 @@ use crate::evidence::EvidenceRecord;
 use crate::qualification::SentinelState;
 use serde::Serialize;
 
+pub const MAX_NOTIFICATION_BYTES: usize = 4096;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ActionPlan {
     NoAction,
     Notify { message: String },
+    Recovered { message: String },
 }
 
 pub fn plan(evidence: &EvidenceRecord, requested_messages: &[String]) -> ActionPlan {
@@ -28,8 +32,8 @@ mod tests {
     use crate::observation::Observation;
 
     fn anomaly() -> EvidenceRecord {
-        let previous = Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 80);
-        let current = Observation::new("SYSTEM_USED_MEMORY_MIB", 2, 200);
+        let previous = Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 80).unwrap();
+        let current = Observation::new("SYSTEM_USED_MEMORY_MIB", 2, 200).unwrap();
         EvidenceRecord::evaluate(Some(&previous), &current, 100)
     }
 
@@ -50,8 +54,8 @@ mod tests {
 
     #[test]
     fn non_anomalous_evidence_produces_no_action() {
-        let previous = Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 80);
-        let current = Observation::new("SYSTEM_USED_MEMORY_MIB", 2, 90);
+        let previous = Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 80).unwrap();
+        let current = Observation::new("SYSTEM_USED_MEMORY_MIB", 2, 90).unwrap();
         let evidence = EvidenceRecord::evaluate(Some(&previous), &current, 100);
 
         assert_eq!(plan(&evidence, &[]), ActionPlan::NoAction);
@@ -59,7 +63,7 @@ mod tests {
 
     #[test]
     fn unknown_evidence_cannot_trigger_action() {
-        let current = Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 200);
+        let current = Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 200).unwrap();
         let evidence = EvidenceRecord::evaluate(None, &current, 100);
 
         assert_eq!(

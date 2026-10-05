@@ -8,7 +8,7 @@ use anyhow::{bail, Context, Result};
 use pest::Parser;
 use pest_derive::Parser;
 
-const MAX_SOURCE_BYTES: usize = 64 * 1024;
+pub const MAX_SOURCE_BYTES: usize = 64 * 1024;
 const MAX_NESTING_DEPTH: usize = 16;
 const MAX_MESSAGES: usize = 64;
 const MAX_MESSAGE_BYTES: usize = 1024;
@@ -17,7 +17,7 @@ const MAX_LITERAL_VALUE: u64 = 1_000_000_000_000;
 
 #[derive(Parser)]
 #[grammar = "vapor.pest"]
-pub struct VaporParser;
+struct VaporParser;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ComparisonOp {
@@ -80,12 +80,27 @@ pub struct Program {
 }
 
 impl Program {
+    /// Bind deployment-controlled policies to the metrics the selected adapter emits.
+    pub fn validate_metrics(&self, supported: &[&str]) -> Result<()> {
+        fn visit(statements: &[Statement], supported: &[&str]) -> Result<()> {
+            for statement in statements {
+                if let Statement::If { condition, body } = statement {
+                    let metric = match condition {
+                        Condition::Metric(metric) | Condition::Comparison { metric, .. } => metric,
+                    };
+                    if !supported.contains(&metric.as_str()) {
+                        bail!("unknown or unavailable policy metric: {metric}");
+                    }
+                    visit(body, supported)?;
+                }
+            }
+            Ok(())
+        }
+        visit(&self.statements, supported)
+    }
+
     pub fn requested_messages(&self, observation: &Observation) -> Vec<String> {
-        fn collect(
-            statements: &[Statement],
-            observation: &Observation,
-            output: &mut Vec<String>,
-        ) {
+        fn collect(statements: &[Statement], observation: &Observation, output: &mut Vec<String>) {
             for statement in statements {
                 match statement {
                     Statement::Send(message) => output.push(message.clone()),
@@ -108,6 +123,8 @@ pub fn parse_program(source: &str) -> Result<Program> {
         bail!("Vapor source exceeds {} bytes", MAX_SOURCE_BYTES);
     }
 
+    check_structure(source)?;
+
     let root = VaporParser::parse(Rule::vapor_func, source)?
         .next()
         .context("Vapor source produced no root node")?;
@@ -117,9 +134,53 @@ pub fn parse_program(source: &str) -> Result<Program> {
         .context("Vapor source produced no body")?;
 
     let mut message_count = 0;
-    Ok(Program {
+    let program = Program {
         statements: parse_body(body, 0, &mut message_count)?,
-    })
+    };
+    let mut bytes = 0;
+    fn message_bytes(statements: &[Statement], bytes: &mut usize) {
+        for statement in statements {
+            match statement {
+                Statement::Send(message) => *bytes += message.len() + 3,
+                Statement::If { body, .. } => message_bytes(body, bytes),
+            }
+        }
+    }
+    message_bytes(&program.statements, &mut bytes);
+    if bytes.saturating_sub(3) > crate::policy::MAX_NOTIFICATION_BYTES {
+        bail!(
+            "combined notification messages exceed {} bytes",
+            crate::policy::MAX_NOTIFICATION_BYTES
+        );
+    }
+    Ok(program)
+}
+
+/// Count braces before invoking the recursive parser. Strings are opaque and
+/// escapes are unsupported, exactly as in the grammar. The function body adds
+/// one level beyond MAX_NESTING_DEPTH. Memory and stack use are constant here.
+fn check_structure(source: &str) -> Result<()> {
+    let mut quoted = false;
+    let mut depth = 0usize;
+    for byte in source.bytes() {
+        match byte {
+            b'"' => quoted = !quoted,
+            b'{' if !quoted => {
+                depth += 1;
+                if depth > MAX_NESTING_DEPTH + 1 {
+                    bail!("Vapor nesting exceeds depth {}", MAX_NESTING_DEPTH);
+                }
+            }
+            b'}' if !quoted => {
+                depth = depth.checked_sub(1).context("unmatched closing brace")?;
+            }
+            _ => {}
+        }
+    }
+    if quoted || depth != 0 {
+        bail!("unterminated string or block");
+    }
+    Ok(())
 }
 
 fn parse_body(
@@ -143,7 +204,10 @@ fn parse_statement(
                 .checked_add(1)
                 .context("Vapor message count overflowed")?;
             if *message_count > MAX_MESSAGES {
-                bail!("Vapor source exceeds {} notification messages", MAX_MESSAGES);
+                bail!(
+                    "Vapor source exceeds {} notification messages",
+                    MAX_MESSAGES
+                );
             }
 
             let message = pair
@@ -158,9 +222,8 @@ fn parse_statement(
             }
 
             let mut inner = pair.into_inner();
-            let condition = parse_condition(
-                inner.next().context("if statement missing condition")?,
-            )?;
+            let condition =
+                parse_condition(inner.next().context("if statement missing condition")?)?;
 
             let body = parse_body(
                 inner.next().context("if statement missing body")?,
@@ -398,7 +461,7 @@ mod tests {
     fn oversized_message_is_rejected() {
         let source = format!(
             "vapor sentinel() {{ send(\"{}\"); }}",
-            "x".repeat(MAX_MESSAGE_BYTES)
+            "x".repeat(MAX_MESSAGE_BYTES + 1)
         );
         assert!(parse_program(&source).is_err());
     }
@@ -410,5 +473,75 @@ mod tests {
             MAX_LITERAL_VALUE + 1
         );
         assert!(parse_program(&source).is_err());
+    }
+}
+
+#[cfg(test)]
+mod regression_tests {
+    use super::*;
+    #[test]
+    fn deeply_nested_source_is_rejected_before_recursive_parse() {
+        let source = format!(
+            "vapor s(){{{}send(\"deep\");{}}}",
+            "if(M){".repeat(9000),
+            "}".repeat(9000)
+        );
+        assert!(source.len() < MAX_SOURCE_BYTES);
+        assert!(parse_program(&source)
+            .unwrap_err()
+            .to_string()
+            .contains("nesting"));
+    }
+    #[test]
+    fn exact_depth_limit_and_quoted_braces_work() {
+        let source = format!(
+            "vapor s(){{{}send(\"{{{{message}}}}\");{}}}",
+            "if(M){".repeat(MAX_NESTING_DEPTH),
+            "}".repeat(MAX_NESTING_DEPTH)
+        );
+        assert!(parse_program(&source).is_ok());
+    }
+    #[test]
+    fn lexical_tokens_cannot_contain_whitespace() {
+        for source in [
+            "vapor s(){if(SYSTEM_ USED_MEMORY_MIB>=100){send(\"bad\");}}",
+            "vapor s(){if(M>=1 00){send(\"bad\");}}",
+        ] {
+            assert!(parse_program(source).is_err());
+        }
+    }
+    #[test]
+    fn metric_binding_rejects_typos_and_unavailable_adapters() {
+        let program =
+            parse_program("vapor s(){if(SYSTEM_USED_MEMORRY_MIB>=100){send(\"bad\");}}").unwrap();
+        assert!(program
+            .validate_metrics(&["SYSTEM_USED_MEMORY_MIB"])
+            .is_err());
+    }
+    #[test]
+    fn aggregate_message_limit_is_enforced_at_load() {
+        let source = format!(
+            "vapor s(){{{}}}",
+            format!("send(\"{}\");", "x".repeat(1024)).repeat(5)
+        );
+        assert!(parse_program(&source)
+            .unwrap_err()
+            .to_string()
+            .contains("combined"));
+        let source = format!(
+            "vapor s(){{send(\"{}\");send(\"{}\");send(\"{}\");send(\"{}\");}}",
+            "x".repeat(1024),
+            "x".repeat(1024),
+            "x".repeat(1024),
+            "x".repeat(1015)
+        );
+        let program = parse_program(&source).unwrap();
+        assert_eq!(
+            program
+                .requested_messages(&Observation::new("M", 1, 1).unwrap())
+                .join(" | ")
+                .len(),
+            crate::policy::MAX_NOTIFICATION_BYTES
+        );
     }
 }

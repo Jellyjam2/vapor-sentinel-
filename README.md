@@ -1,155 +1,130 @@
 # Vapor Sentinel
 
-**Titan Black Swan TECHNOLOGIES · Defensive system assurance**
+A small Rust monitor with inspectable policy decisions and optional HTTPS notifications.
 
-Vapor Sentinel is a Rust-based monitoring and evidence engine built around one strict idea:
+The runtime separates observation, deviation, qualification, evidence, policy, notification scheduling, and delivery. External network effects are disabled by default.
 
-> Observe first. Qualify the evidence. Decide policy. Only then permit an external action.
+## Run a deterministic demonstration
 
-[![Rust CI](https://github.com/Jellyjam2/vapor-sentinel-/actions/workflows/rust.yml/badge.svg)](https://github.com/Jellyjam2/vapor-sentinel-/actions/workflows/rust.yml)
-[![Windows](https://img.shields.io/badge/Windows-0078D4?logo=windows&logoColor=white)](#platform-support) [![macOS](https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white)](#platform-support) [![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)](#platform-support)
+Install Rust through rustup, clone this repository, and run from the repository root:
 
-## Engine
+```sh
+cargo test --locked
+cargo run --locked -- --check
+cargo run --locked -- --replay tests/fixtures/memory-sequence.json --output evidence.jsonl
+```
 
-    SYSTEM OBSERVATION
-            ↓
-      Observation
-            ↓
-       Deviation
-            ↓
-     Qualification
-            ↓
-      EvidenceRecord
-            ↓
-        ActionPlan
-            ↓
-    Optional Action
+The pinned toolchain is Rust 1.99.0. Viewer behavior tests additionally use Node.js 18 or newer. `Cargo.lock` records the dependency resolution.
+The replay produces `Unknown → Anomalous → Anomalous → Normal → Normal`.
+It schedules one alert, suppresses the repeated alert, then schedules one recovery.
+Replay **always disables network delivery**, even if the action environment flag is enabled.
 
-The boundaries are intentional:
+Open `dashboard/index.html` in a browser and choose the resulting `evidence.jsonl` file.
+The viewer reads the file locally and displays actual recorded decisions and delivery outcomes.
+It has no live connection and cannot execute actions.
 
-- Observation is not qualification.
-- Qualification is not authority.
-- Evidence is not action.
-- Policy is not execution.
-- Invalid or insufficient evidence becomes Unknown rather than silently becoming normal.
-- External network effects are disabled unless explicitly enabled and configured.
+## Observe this machine
 
-See ARCHITECTURE.md for the design rationale and SECURITY.md for the security boundary.
+```sh
+cargo build --locked --release
+./target/release/vapor_project --samples 2 --output evidence.jsonl
+```
 
-## Current implementation
+On Windows:
 
-| Area | Current behavior |
-|---|---|
-| Runtime | Rust + sysinfo |
-| Metric | SYSTEM_USED_MEMORY_MIB |
-| Threshold | Configured in `vapor-sentinel.json` (default 100 MiB) |
-| Observation | Monotonic sequence number |
-| Deviation | unchanged / increased / decreased / invalid ordering |
-| Qualification | Normal / Degraded / Anomalous / Unknown |
-| Evidence | In-memory EvidenceRecord, JSON serializable |
-| Policy | Pure ActionPlan derivation |
-| DSL | Restricted Pest grammar with bounded comparisons |
-| Actions | Optional HTTPS webhook |
-| Bounded mode | VAPOR_SENTINEL_ONESHOT=1 or VAPOR_SENTINEL_EXIT=1 |
-| Dashboard | Static, read-only presentation preview |
+```powershell
+.\target\release\vapor_project.exe --samples 2 --output evidence.jsonl
+```
 
-The memory metric reflects system used memory reported by sysinfo, converted to MiB. The threshold is an implementation default, not a universal safe-operating value.
+Omit `--samples` for continuous monitoring. Ctrl-C or SIGTERM requests shutdown and drains outstanding notification work. A network operation can take up to its configured ten-second request timeout.
 
-## DSL boundary
+`VAPOR_SENTINEL_ONESHOT=1` takes **two samples**, so it exercises a baseline and a qualification. `VAPOR_SENTINEL_EXIT=1` is a deprecated launch-time alias; it is not a live stop switch.
 
-The DSL currently describes declarative notification intent only:
+Stdout contains versioned JSONL only. Diagnostics go to stderr. `--output PATH` additionally appends the same records to a file without truncating existing data. Operators must manage disk capacity, rotation, permissions, and retention. This is a recording facility, not a tamper-evident database or durable notification queue.
 
-    vapor sentinel() {
-        if(SYSTEM_USED_MEMORY_MIB >= 100) {
-            send("CRITICAL_MEMORY_THRESHOLD");
-        }
+## Configure the policy
+
+Use `--config PATH` or `VAPOR_SENTINEL_CONFIG`; the default is `vapor-sentinel.json`.
+Paths inside configuration resolve relative to that configuration file.
+
+```json
+{
+  "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+  "poll_interval_secs": 4,
+  "notification_repeat_secs": 300,
+  "notification_retry_secs": 30,
+  "recovery_samples": 2,
+  "dsl_path": "policies/default.vapor"
+}
+```
+
+The default policy requests a notification when available system memory is at or below 10%:
+
+```text
+vapor sentinel() {
+    if(SYSTEM_AVAILABLE_MEMORY_PERCENT <= 10) {
+        send("LOW_AVAILABLE_SYSTEM_MEMORY");
     }
+}
+```
 
-The DSL supports metric selectors and bounded numeric comparisons (`>`, `>=`, `<`, `<=`, `==`, `!=`). Loops, assignments, and generic executable statements are rejected rather than silently ignored.
+This is an example to calibrate for the monitored workload, not a universal safety threshold.
+The alternative adapter is `SYSTEM_USED_MEMORY_MIB`. Select it in `metric` and use that exact identifier in the policy.
+Available-memory percentage is integer percent (rounded down). Metrics reflect sysinfo's host/system view; container-limit-aware pressure detection is not claimed.
 
-The parser itself performs no filesystem or network side effects. Runtime policy is loaded from an explicit local DSL file.
+**Migration from the earlier foundation:** remove `threshold_mib` from JSON and express the comparison in the DSL. Unknown configuration fields and unavailable metric names are rejected. There is no second hidden threshold that overrides a matching DSL rule.
 
-## Configuration
+## Exact decision semantics
 
-Runtime configuration is loaded from `vapor-sentinel.json` by default, or from the path in `VAPOR_SENTINEL_CONFIG`. The configuration validates the anomaly threshold, polling interval, and DSL policy path before startup.
+- Comparisons `>`, `>=`, `<`, `<=`, `==`, and `!=` use their ordinary unsigned integer meanings.
+- Nested conditions must all match. `if(METRIC)` selects that metric regardless of its value. An unconditional `send` requests a notification on every valid evaluation; use comparisons for thresholds.
+- A first sample, duplicate, out-of-order sample, sequence gap, or metric mismatch is `Unknown` and cannot authorize a notification.
+- With a valid consecutive sample, any matching notification request yields `Anomalous`; no matching requests yields `Normal`.
+- A changing or decreasing measurement alone is not `Degraded`. That enum variant is reserved and is not emitted by the current qualifier.
+- Notifications repeat no faster than the configured interval for the same active message. Changed messages can start a new notification. Failures retry after the configured retry interval, using the next current evaluation.
+- Recovery requires consecutive normal samples and is a distinct notification type. Unknown samples do not count toward recovery. Recovery cannot authorize remediation; the only supported effect is notification.
+- Unknown monitoring status is explicit in local evidence and scheduling records. There is no separate remote monitor-health service.
 
-The default policy is `policies/default.vapor`.
+The parser rejects unsupported execution syntax and bounds file bytes, lexical tokens, message counts, aggregate message bytes, and nesting **before** recursive parsing. Policies and configuration remain deployment-controlled local inputs.
 
-## Action safety
+## Enable optional notification
 
-Webhook notification requires both:
+Set both variables before launching live monitoring:
 
-    VAPOR_SENTINEL_ENABLE_ACTIONS=1
-    VAPOR_SENTINEL_WEBHOOK_URL=https://your-approved-endpoint.example/
+```sh
+export VAPOR_SENTINEL_ENABLE_ACTIONS=1
+export VAPOR_SENTINEL_WEBHOOK_URL='https://your-approved-endpoint.example/webhook'
+```
 
-Without both conditions, notification is skipped.
+In PowerShell:
 
-The current release path does not implement secure file shredding and does not claim guaranteed memory zeroization.
+```powershell
+$env:VAPOR_SENTINEL_ENABLE_ACTIONS="1"
+$env:VAPOR_SENTINEL_WEBHOOK_URL="https://your-approved-endpoint.example/webhook"
+```
 
-## Verification
+Missing or malformed enabled configuration fails startup. URLs require HTTPS and a host, with no embedded user/password or fragment. Redirects are disabled. Query/path tokens are allowed but are never printed in delivery error text.
 
-CI covers formatting, Clippy with warnings denied, tests on Linux/macOS/Windows, stable and nightly test matrices, release builds, and dependency auditing.
+A bounded worker sends notifications independently of observation cadence. Delivery records distinguish delivered, disabled/skipped, and failed outcomes. On bounded execution, any recorded delivery failure yields a nonzero exit status. Scheduling and retry state are in memory; process restart does not resume unsent notifications or preserve cooldowns.
 
-A green CI run is necessary but not sufficient for a commercial release. Runtime integration, security review, source reinspection, and documentation must agree with the implementation before release claims are promoted.
+## Evidence and replay
 
-## Repository map
+Each evaluation includes schema version, event/run/source identity, observation time, policy SHA-256, metric/unit, matched messages, qualification reason, policy plan, scheduled plan, and scheduling status. Delivery records reference the evaluation event ID.
 
-    src/
-    ├── actions.rs        external side-effect boundary
-    ├── deviation.rs      observation comparison
-    ├── dsl.rs            parser + declarative program model
-    ├── evidence.rs       evidence record construction
-    ├── observation.rs    canonical observations
-    ├── policy.rs         side-effect-free action planning
-    ├── qualification.rs  sentinel-state qualification
-    ├── main.rs           system metric runtime
-    ├── config.rs         validated runtime configuration
-    └── vapor.pest        restricted DSL grammar
+The policy hash identifies exact bytes. It is not a signature or authentication guarantee. Source/run IDs are labels; host telemetry and wall time are not independently attested. Replay accepts a bounded JSON array of `{ "metric": ..., "sequence": ..., "value": ... }`; see the checked-in fixture. It reproduces decisions under the chosen policy. It does not verify signed historical evidence.
 
-    dashboard/
-    ├── index.html        read-only operator interface preview
-    ├── styles.css        presentation styling
-    └── app.js            presentation-only sample evidence
+For the complete current design, see [ARCHITECTURE.md](ARCHITECTURE.md), [threat model](docs/threat-model.md), and [security policy](SECURITY.md).
 
-    .github/workflows/
-    └── rust.yml          CI gates
+## Verification and remaining work
 
-    ARCHITECTURE.md        system design boundary
-    SECURITY.md            responsible-use + security boundary
-    policies/default.vapor default declarative notification policy
-    vapor-sentinel.json    runtime configuration
+```sh
+cargo fmt --all -- --check
+cargo clippy --locked --all-targets --all-features -- -D warnings
+cargo test --locked --all-targets
+node --test tests/dashboard.test.cjs
+cargo build --locked --release
+```
 
-    CHANGELOG.md           implementation history
+CI targets Linux, macOS, and Windows with the pinned compiler and locked dependencies. A workflow definition is not a claim that those platform runs have passed. See [verification notes](docs/verification.md) for the actual local checks.
 
-## Platform support
-
-CI targets all three supported desktop/server families:
-
-**Windows** · **macOS** · **Linux**
-
-The dashboard is a browser-based static preview and currently has no live evidence transport.
-
-## Development
-
-PowerShell:
-
-    cargo fmt -- --check
-    cargo clippy --all-targets --all-features -- -D warnings
-    cargo test
-    cargo build --release
-
-For a bounded runtime smoke test:
-
-    $env:VAPOR_SENTINEL_ONESHOT="1"
-    cargo run
-    Remove-Item Env:VAPOR_SENTINEL_ONESHOT
-
-## Product
-
-**Company:** Titan Black Swan TECHNOLOGIES  
-**Product:** Vapor Sentinel  
-**Position:** Defensive monitoring and evidence-driven sentinel infrastructure.
-
-## Responsible use
-
-Use Vapor Sentinel only on systems and infrastructure you own or are explicitly authorized to monitor. See SECURITY.md.
+Remaining release work includes a real-environment pilot, service packaging, a maintainer-selected license and vulnerability reporting channel, operational benchmarks, live transport if needed, and independent security review. The future roadmap is not implemented capability.

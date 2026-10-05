@@ -1,5 +1,5 @@
 vapor sentinel() {
-    if(SYSTEM_USED_MEMORY_MIB >= 100) {
-        send("CRITICAL_MEMORY_THRESHOLD");
+    if(SYSTEM_AVAILABLE_MEMORY_PERCENT <= 10) {
+        send("LOW_AVAILABLE_SYSTEM_MEMORY");
     }
 }

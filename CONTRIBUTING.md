@@ -6,7 +6,7 @@ Vapor Sentinel is developed as an evidence-oriented system. Changes should prese
 
 `Observation -> Deviation -> Qualification -> Evidence -> Policy -> Action`
 
-Do not introduce external side effects into the observation, deviation, qualification, evidence, or policy layers.
+Do not introduce external side effects into the observation, deviation, qualification, evidence, or policy layers. Stateful scheduling belongs in lifecycle; external work belongs in delivery/actions.
 
 ## Before opening a pull request
 
@@ -14,16 +14,16 @@ Run locally:
 
 ```powershell
 cargo fmt -- --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo test
-cargo build --release
+cargo clippy --locked --all-targets --all-features -- -D warnings
+cargo test --locked --all-targets
+cargo build --locked --release
 ```
 
 If the change affects runtime behavior, also run the bounded smoke test:
 
 ```powershell
 $env:VAPOR_SENTINEL_ONESHOT="1"
-cargo run
+cargo run --locked
 Remove-Item Env:VAPOR_SENTINEL_ONESHOT
 ```
 
