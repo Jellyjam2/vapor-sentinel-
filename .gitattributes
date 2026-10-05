@@ -1,0 +1,2 @@
+# Policy hashes identify exact bytes; preserve those bytes across Git checkouts.
+*.vapor text eol=lf

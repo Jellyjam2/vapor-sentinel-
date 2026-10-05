@@ -47,6 +47,19 @@ jobs:
         run: cargo test --locked --all-targets
       - name: Viewer schema and interaction tests
         run: node --test tests/dashboard.test.cjs
+      - name: Install locked browser test dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: npm ci --ignore-scripts
+      - name: Browser interactions, layouts, and accessibility
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run test:browser
+      - name: Save browser screenshots and accessibility results
+        if: always() && matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: dashboard-browser-evidence
+          if-no-files-found: warn
+          path: browser-artifacts/
       - name: Validate shipped configuration
         run: cargo run --locked -- --check
       - name: Replay smoke test (network always disabled)
@@ -80,3 +93,5 @@ jobs:
         run: cargo install cargo-audit --version 0.22.2 --locked
       - name: Audit the committed dependency resolution
         run: cargo audit --file Cargo.lock
+      - name: Audit dashboard development dependencies
+        run: npm audit --omit=optional

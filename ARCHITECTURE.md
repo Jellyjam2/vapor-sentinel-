@@ -26,7 +26,11 @@ Stdout is versioned JSONL. The optional output file appends the same records. Ev
 
 Replay is an explicit CLI mode using bounded input records. It always disables network actions and advances scheduling time from sample position and configured interval. Replay decisions are reproducible; emitted run IDs and recording timestamps intentionally differ.
 
-The browser viewer imports these recordings locally and adapts the actual schema. It does not fetch a live feed or obtain execution authority.
+The browser workspace imports these recordings locally and adapts the actual schema. `dashboard/evidence.js` is a pure, independently tested parser and query model; `dashboard/app.js` owns DOM rendering and local interactions. Imported text is never interpreted as markup. A restrictive content security policy disallows network connections and external scripts. There are no production JavaScript dependencies.
+
+Each stream is scoped by run, source, metric, unit, policy hash, and replay mode. Timeline positions follow recording order, and invalid sequence boundaries break the line rather than interpolating a continuous signal. Summary counts cover the selected stream; filtering affects the explorer and its exports. Delivery association requires both run and event ID. Duplicate identities are rejected instead of silently replacing prior evidence. Unmatched delivery records are counted explicitly, while planned notifications without results remain unrecorded.
+
+The UI paginates record and delivery tables; filtered exports retain corresponding delivery events. A file-load generation counter prevents stale reads from replacing newer selections or restoring cleared data. No recording is persisted by the app. It does not fetch a live feed or obtain execution authority.
 
 ## Resource and trust boundaries
 

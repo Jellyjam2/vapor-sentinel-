@@ -1,0 +1,17 @@
+{
+  "name": "vapor-sentinel-dashboard-tests",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Development-only browser verification for the dependency-free evidence workspace",
+  "scripts": {
+    "test:model": "node --test tests/dashboard.test.cjs",
+    "test:browser": "node --test --test-concurrency=1 tests/dashboard.browser.cjs"
+  },
+  "devDependencies": {
+    "axe-core": "4.13.0",
+    "playwright": "1.62.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -16,6 +16,12 @@ The current implemented boundary is described in [ARCHITECTURE.md](ARCHITECTURE.
 
 Webhook errors never include endpoint credentials or response bodies. HTTPS is enforced by the client as well as URL validation, redirects are disabled, and requests have a timeout. Network delivery is isolated in a bounded worker and does not grant a policy arbitrary execution authority.
 
+## Dashboard boundary
+
+The evidence workspace is a local, read-only recording inspector. It validates schema, dates, safe integers, identifiers, delivery types, and size limits before accepting a file. Text sinks and a content security policy prevent imported strings from becoming HTML or initiating network connections through the app. It does not upload recordings or store them persistently. An operator can explicitly export a filtered file to their device.
+
+A displayed state is a claim in the supplied recording, not independent proof that a host is healthy. Policy hashes identify bytes and are not signatures. Example recordings are labeled, and missing delivery evidence is not reported as success. Browser behavior and WCAG checks are covered by automated CI, without claiming a full browser matrix or manual accessibility/security audit.
+
 ## Reporting
 
 A maintainer-designated private vulnerability contact is still required before a public production release. The repository does not currently document a verified working private reporting channel. Do not include secrets or sensitive deployment data in public issues. Maintainers should establish and test a private reporting channel before making production support commitments.

@@ -1,5 +1,7 @@
 # Rust build artifacts
 /target/
+/node_modules/
+/browser-artifacts/
 
 # IDE
 .vscode/

@@ -7,7 +7,7 @@ Measured locally on 5 October 2026 using Linux x86_64, rustc 1.99.0 and the comm
 | `cargo fmt --all -- --check` | Pass |
 | `cargo clippy --locked --all-targets --all-features -- -D warnings` | Pass |
 | `cargo test --locked --all-targets` | 63 Rust tests pass: 54 unit, 4 assurance integration, 5 executable integration |
-| `node --test tests/dashboard.test.cjs` | 4 tests pass using actual Rust replay output and a small DOM port |
+| `node --test tests/dashboard.test.cjs` | 14 recording-model tests pass against actual Rust replay output and the bundled example |
 | `cargo build --locked --release` | Pass |
 | Release executable, live observation, `VAPOR_SENTINEL_ONESHOT=1`, actions disabled | Two observations; Unknown then Normal on this host; successful exit |
 | Release executable replay fixture | Expected five evaluations, one scheduled alert, cooldown, and recovery; no network delivery |
@@ -30,10 +30,10 @@ The audit used RustSec database commit `ef6173cbc5c50ec8166f9a5b28f07834144373ee
 
 ## Still unverified
 
-Hosted CI previously could not start jobs because GitHub reported an account payments/spending-limit problem. A new successful matrix run is required to establish Windows/macOS behavior. This source change cannot alter GitHub billing settings.
+The runtime repair passed Linux, macOS, Windows, and dependency-audit jobs on main at `19e4bd2`: [CI run 37248623682](https://github.com/Jellyjam2/vapor-sentinel-/actions/runs/37248623682). The earlier billing-related block did not affect that run.
 
 No real external webhook was contacted during repair. Delivery behavior was tested with disabled clients and controlled fake transports; live DNS/TLS/provider behavior still requires a deployment-specific test.
 
-A rendered browser/layout test was not completed: the available Playwright browser download failed. Viewer logic was verified with Node and a DOM port, not represented as a full browser or accessibility audit.
+The refined dashboard adds `tests/dashboard.browser.cjs`, which runs Chromium against actual files, exports, keyboard controls, stream selection, malformed inputs, file-load races, and 320–1440px layouts. It also runs axe-core checks against empty, loaded, and mobile views. Linux CI uploads screenshots and reports as `dashboard-browser-evidence`; consult the check result for the exact revision. Local Chrome launch was unavailable in the repair environment. This test suite does not establish Safari/Firefox support or constitute a manual accessibility audit.
 
 No resource-overhead benchmark, authenticated evidence proof, service installation pilot, log-rotation system, or durable-delivery guarantee is claimed. Maintainers still need to choose licensing and establish a private vulnerability reporting channel before a production release.
