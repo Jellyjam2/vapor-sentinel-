@@ -96,7 +96,7 @@
     const colors = ["var(--green)", "var(--red)", "var(--purple)", "var(--yellow)"];
     let at = 0;
     const stops = model.STATES.map((s, i) => {
-      text(`count-${s.toLowerCase()}`, `${format(result.counts[s])} / ${(result.counts[s] / rows.length * 100).toFixed(0)}%`);
+      text(`count-${s.toLowerCase()}`, `${format(result.counts[s])} / ${(result.counts[s] / rows.length * 100).toFixed(1)}%`);
       const start = at; at += result.counts[s] / rows.length * 100;
       return `${colors[i]} ${start}% ${at}%`;
     });
@@ -111,6 +111,13 @@
   });
   function renderChart() {
     const chart = $("timeline"); chart.replaceChildren();
+    // Use CSS-pixel coordinates so the complete series and readable axis labels
+    // fit narrow cards; a fixed 800px coordinate system clips at small widths.
+    const bounds = $("chart-stage").getBoundingClientRect();
+    const width = Math.max(180, bounds.width), height = Math.max(140, bounds.height);
+    chart.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    plot.left = width < 360 ? 32 : 44; plot.right = width - 12;
+    plot.top = 17; plot.bottom = height - 17;
     let maximum = 1;
     for (const row of rows) maximum = Math.max(maximum, row.evidence.value);
     chartScale = stream?.unit === "percent" ? 100 : Math.max(1, Math.ceil(maximum / Math.pow(10, Math.floor(Math.log10(maximum)))) * Math.pow(10, Math.floor(Math.log10(maximum))));
@@ -317,4 +324,11 @@
   document.addEventListener("drop", (event) => { event.preventDefault(); dragDepth = 0; $("drop-overlay").hidden = true; const files = event.dataTransfer.files; if (files.length !== 1) status("Please open one recording at a time.", true); else void loadFile(files[0]); });
   window.addEventListener("blur", () => { dragDepth = 0; $("drop-overlay").hidden = true; });
   clear();
+  if ("ResizeObserver" in window) {
+    let frame = 0;
+    new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(renderChart);
+    }).observe($("chart-stage"));
+  }
 })();

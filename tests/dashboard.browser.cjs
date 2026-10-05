@@ -139,6 +139,17 @@ test('responsive layouts have no document overflow and stay keyboard accessible'
   for(const width of [320,390,768,1024,1440]) {
     await page.setViewportSize({width,height:900});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),true,`No page overflow at ${width}px`);
+    await page.waitForFunction(() => {
+      const chart=document.querySelector('#timeline'), stage=document.querySelector('#chart-stage');
+      return Math.abs(chart.viewBox.baseVal.width-stage.getBoundingClientRect().width)<1;
+    });
+    const contained=await page.evaluate(()=>{
+      const panel=document.querySelector('.timeline-panel').getBoundingClientRect();
+      const stage=document.querySelector('#chart-stage').getBoundingClientRect();
+      const marker=document.querySelector('#chart-marker').getBoundingClientRect();
+      return stage.left>=panel.left && stage.right<=panel.right && marker.left>=stage.left && marker.right<=stage.right;
+    });
+    assert.equal(contained,true,`The entire chart and last observation remain visible at ${width}px`);
     if(width===390) {await page.screenshot({path:path.join(artifacts,'dashboard-mobile.png'),fullPage:true});await checkAxe(page,'mobile');}
   }
   await page.getByRole('link',{name:'Evidence',exact:true}).click();

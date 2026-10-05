@@ -138,7 +138,7 @@ A bounded worker sends notifications independently of observation cadence. Deliv
 
 Each evaluation includes schema version, event/run/source identity, observation time, policy SHA-256, metric/unit, matched messages, qualification reason, policy plan, scheduled plan, and scheduling status. Delivery records reference the evaluation event ID.
 
-The policy hash identifies exact bytes. It is not a signature or authentication guarantee. Source/run IDs are labels; host telemetry and wall time are not independently attested. Replay accepts a bounded JSON array of `{ "metric": ..., "sequence": ..., "value": ... }`; see the checked-in fixture. It reproduces decisions under the chosen policy. It does not verify signed historical evidence.
+The policy hash identifies exact bytes. Shipped `.vapor` policies retain LF line endings across Git checkouts, so their hashes are stable on Windows, macOS, and Linux. Editing the bytes of a local policy changes its hash. It is not a signature or authentication guarantee. Source/run IDs are labels; host telemetry and wall time are not independently attested. Replay accepts a bounded JSON array of `{ "metric": ..., "sequence": ..., "value": ... }`; see the checked-in fixture. It reproduces decisions under the chosen policy. It does not verify signed historical evidence.
 
 For the complete current design, see [ARCHITECTURE.md](ARCHITECTURE.md), [threat model](docs/threat-model.md), and [security policy](SECURITY.md).
 
