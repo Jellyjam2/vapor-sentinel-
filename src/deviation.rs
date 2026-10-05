@@ -12,6 +12,7 @@ pub enum Deviation {
     DuplicateSequence,
     OutOfOrderSequence,
     MetricMismatch,
+    SequenceGap,
 }
 
 pub fn compare(previous: Option<&Observation>, current: &Observation) -> Deviation {
@@ -27,6 +28,10 @@ pub fn compare(previous: Option<&Observation>, current: &Observation) -> Deviati
     }
     if current.sequence() < previous.sequence() {
         return Deviation::OutOfOrderSequence;
+    }
+
+    if current.sequence() - previous.sequence() != 1 {
+        return Deviation::SequenceGap;
     }
 
     match current.value().cmp(&previous.value()) {

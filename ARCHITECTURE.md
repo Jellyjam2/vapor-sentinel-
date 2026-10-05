@@ -1,140 +1,40 @@
-# Architecture
+# Current architecture
 
-## Purpose
+The executable samples one configured memory metric and evaluates one local policy. It does not perform filesystem deletion, process remediation, arbitrary code execution, or cryptographic attestation.
 
-Vapor Sentinel is an evidence-oriented system monitoring engine. Its core responsibility is to transform observed system measurements into deterministic, inspectable state and policy decisions.
+## Deterministic core
 
-The architecture deliberately separates observation, interpretation, evidence, policy, and external effects.
+`Observation → Deviation → Qualification → EvidenceRecord → ActionPlan`
 
-## Processing boundary
+`Observation` validates identity and nonzero sequence. `Deviation` requires matching identities and consecutive sequences; a missing baseline, gap, duplicate, or reversed sequence becomes Unknown. The runtime's `EvidenceRecord::evaluate_policy` evaluates the actual DSL predicates and qualifies valid matching requests as Anomalous, otherwise Normal. The standalone numeric `EvidenceRecord::evaluate` helper uses an inclusive numeric threshold for callers that explicitly choose that API; the executable does not add that threshold to DSL conditions.
 
-    SYSTEM
-       |
-       v
-    Observation
-       |
-       v
-    Deviation
-       |
-       v
-    Qualification
-       |
-       v
-    EvidenceRecord
-       |
-       v
-    ActionPlan
-       |
-       +------> Optional external action
+The pure policy module authorizes anomaly notifications only from anomalous evidence. All six DSL comparison operators are authoritative. Bare metric selectors match the selected metric without a value test. Source code is parsed once; the parser has no external effects. Available metric names are bound before startup.
 
-### 1. Observation
+## Stateful runtime
 
-`Observation` is the canonical input record:
+`ActionPlan → Lifecycle → Bounded delivery worker → DeliveryResult`
 
-- metric identity;
-- sequence number;
-- observed value.
+The lifecycle module suppresses repeated alerts, schedules reminders, backs off after failures, and emits a separate recovery plan after consecutive normal samples. Unknown samples neither authorize notifications nor resolve active alerts. The action boundary requires Anomalous evidence for Notify and Normal evidence for Recovered, and rechecks aggregate message bounds.
 
-Observation does not decide whether a system is healthy.
+The worker uses a capacity-one queue; the normal runtime keeps at most one notification pending. Its HTTP client is reused, accepts HTTPS only, follows no redirects, and uses a ten-second timeout. Queue status and delivery outcomes are distinct from qualification. A slow endpoint does not run on the sampling thread. Sampling is scheduled using monotonic deadlines; missed deadlines do not cause an unbounded catch-up loop.
 
-### 2. Deviation
+Retry is in-memory and uses the next current observation; this is not a durable delivery guarantee. Changed notification messages may be delivered before the reminder interval. Recovery is sample-based debounce, not numeric hysteresis. Standard termination requests stop sampling and drain outstanding delivery work.
 
-`deviation::compare` compares the current observation with the previous observation.
+## Evidence boundary
 
-It distinguishes:
+Stdout is versioned JSONL. The optional output file appends the same records. Evaluation events include wall-clock timestamp, source/run/event labels, exact-policy SHA-256, matched messages, evidence, plans, and scheduling reason. Delivery events refer to the evaluation ID. Neither labels nor hashes establish authenticity. Logs require operator-managed rotation and retention.
 
-- no baseline;
-- unchanged;
-- increased;
-- decreased;
-- duplicate sequence;
-- out-of-order sequence;
-- metric mismatch.
+Replay is an explicit CLI mode using bounded input records. It always disables network actions and advances scheduling time from sample position and configured interval. Replay decisions are reproducible; emitted run IDs and recording timestamps intentionally differ.
 
-This layer is deterministic and has no external side effects.
+The browser viewer imports these recordings locally and adapts the actual schema. It does not fetch a live feed or obtain execution authority.
 
-### 3. Qualification
+## Resource and trust boundaries
 
-`qualification::qualify` maps the observation and deviation into a sentinel state:
+- Config: 16 KiB maximum, known fields, validated intervals and adapter.
+- DSL: 64 KiB maximum, 16 nested conditions, 64 messages, 1,024 bytes per message, 4,096 aggregate bytes including separators.
+- A quote-aware iterative preflight limits nesting before Pest is called; token rules are atomic.
+- Replay: 1 MiB and at most 10,000 observations.
+- Viewer: 10 MiB and at most 20,000 JSONL records.
+- Metric sampling refreshes memory only; unrelated process enumeration is removed.
 
-- `Normal`
-- `Degraded`
-- `Anomalous`
-- `Unknown`
-
-Invalid ordering, identity mismatches, and insufficient baseline evidence become `Unknown`.
-
-This is a deliberate fail-closed boundary.
-
-### 4. Evidence
-
-`EvidenceRecord` packages the observation, deviation, qualification, and threshold into a serializable record.
-
-Evidence describes what the engine concluded from the supplied observations. It does not itself acquire authority or execute an action.
-
-### 5. Policy
-
-`policy::plan` converts evidence plus declarative notification intent into an `ActionPlan`.
-
-The policy layer is side-effect free.
-
-For the current implementation, only anomalous evidence can produce a notification plan. Normal, degraded, and unknown states produce no action.
-
-### 6. Action boundary
-
-`actions::execute` is the only current module responsible for external network effects.
-
-Actions are disabled by default and require explicit environment configuration. Webhook delivery requires HTTPS.
-
-This boundary exists so that deterministic evidence generation can be tested independently of external services.
-
-## DSL boundary
-
-The Vapor DSL is intentionally smaller than a general-purpose programming language.
-
-Current supported forms are:
-
-- `vapor name() { ... }`
-- `if(METRIC) { ... }`
-- bounded comparisons such as `if(METRIC >= 100) { ... }`
-- `send("message");`
-
-Loops, assignments, generic statements, filesystem operations, and arbitrary executable constructs are rejected.
-
-The parser produces declarative intent; it does not perform the action.
-
-## Runtime boundary
-
-The current executable samples system memory through `sysinfo` and loads the DSL policy from an explicit local file selected by validated runtime configuration.
-
-Current metric:
-
-`SYSTEM_USED_MEMORY_MIB`
-
-Current implementation threshold:
-
-`> 100 MiB`
-
-The threshold is loaded from validated runtime configuration. The repository default is 100 MiB and should not be interpreted as a universal system-health rule.
-
-## What this architecture does not claim
-
-Vapor Sentinel is not currently:
-
-- an EDR;
-- an intrusion-prevention system;
-- a secure enclave;
-- a forensic erasure mechanism;
-- a host/kernel/hypervisor integrity monitor;
-- a guaranteed secure-memory-zeroization system;
-- a persistent evidence database.
-
-Those are outside the current implemented assurance boundary.
-
-## Design principle
-
-The central engineering rule is:
-
-> External action must remain downstream of explicit observation, deterministic qualification, evidence construction, and policy.
-
-That ordering makes the core pipeline easier to test, replay, audit, and reason about than a runtime in which observation and side effects are interleaved.
+These are engineering boundaries within one process, not a sandbox against malicious in-process code. See [threat-model.md](docs/threat-model.md). Future guarantees described in FUTURE_UPGRADES_ROADMAP.txt remain future work.

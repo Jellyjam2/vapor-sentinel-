@@ -1,5 +1,8 @@
 {
-  "threshold_mib": 100,
+  "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
   "poll_interval_secs": 4,
+  "notification_repeat_secs": 300,
+  "notification_retry_secs": 30,
+  "recovery_samples": 2,
   "dsl_path": "policies/default.vapor"
 }

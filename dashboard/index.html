@@ -1,18 +1,61 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07090d"><title>Vapor Sentinel — Console Preview</title><link rel="stylesheet" href="styles.css"></head>
-<body><main class="shell">
-<header class="topbar"><div><div class="eyebrow">TITAN BLACK SWAN TECHNOLOGIES</div><h1>Vapor Sentinel</h1></div><div class="system-chip"><span class="dot"></span>STATIC PREVIEW</div></header>
-<section class="hero-grid">
-<article class="card"><div class="label">SAMPLE EVIDENCE · SENTINEL STATE</div><div class="state-row"><span id="state" class="state">ANOMALOUS</span><span class="sequence">SEQ <strong id="sequence">1842</strong></span></div><p id="reason">Threshold exceeded</p></article>
-<article class="card"><div class="label">SAMPLE SYSTEM USED MEMORY</div><div class="metric"><span id="value">118</span><small>MiB</small></div><div class="metric-meta"><span>threshold &gt; <strong id="threshold">100 MiB</strong></span><span class="delta">+12 MiB</span></div></article>
-</section>
-<section class="panel-grid">
-<article class="card panel"><div class="panel-head"><div><div class="label">EVIDENCE PREVIEW</div><h2>Sample evaluation</h2></div><span class="tag">SAMPLE</span></div><dl class="facts"><div><dt>Metric</dt><dd id="metric">SYSTEM_USED_MEMORY_MIB</dd></div><div><dt>Deviation</dt><dd>Increased <span>+12</span></dd></div><div><dt>Qualification</dt><dd>Anomalous</dd></div><div><dt>Threshold</dt><dd>100 MiB</dd></div></dl></article>
-<article class="card panel"><div class="panel-head"><div><div class="label">POLICY PREVIEW</div><h2>Decision boundary</h2></div><span class="quiet">SIDE-EFFECT FREE</span></div><div class="decision"><div class="decision-mark">!</div><div><strong>Notification planned</strong><p>CRITICAL_MEMORY_THRESHOLD</p></div></div><div class="action-row"><span>External action</span><strong class="off">DISABLED</strong></div></article>
-</section>
-<section class="card panel timeline"><div class="panel-head"><div><div class="label">PIPELINE PREVIEW</div><h2>Assurance path</h2></div><span class="quiet">DETERMINISTIC</span></div><div class="steps">
-<div class="step done"><span>01</span><strong>Observation</strong><small>captured</small></div><div class="step done"><span>02</span><strong>Deviation</strong><small>+12 MiB</small></div><div class="step active"><span>03</span><strong>Qualification</strong><small>Anomalous</small></div><div class="step"><span>04</span><strong>Evidence</strong><small>sample</small></div><div class="step"><span>05</span><strong>Policy</strong><small>notification</small></div><div class="step"><span>06</span><strong>Action</strong><small>disabled</small></div>
-</div></section>
-<footer><span>Vapor Sentinel · evidence-first system assurance</span><span>Windows · macOS · Linux</span></footer>
-</main><script src="app.js"></script></body></html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07090d">
+  <title>Vapor Sentinel — Evidence Viewer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main class="shell">
+  <header class="topbar">
+    <div><div class="eyebrow">TITAN BLACK SWAN TECHNOLOGIES</div><h1>Vapor Sentinel</h1></div>
+    <div class="system-chip">LOCAL EVIDENCE VIEWER</div>
+  </header>
+  <section class="card panel import-panel" aria-label="Load evidence">
+    <label for="evidence-file">Open a recorded JSONL evidence file</label>
+    <input id="evidence-file" type="file" accept=".jsonl,.json,application/json,text/plain">
+    <p>Read-only, local to this browser. No live connection and no network actions. Maximum file size: 10 MiB.</p>
+    <p id="status" role="status" aria-live="polite">No evidence loaded.</p>
+  </section>
+  <nav class="navigation" aria-label="Recorded observations">
+    <button id="previous" disabled>Previous</button><span id="position">0 observations</span><button id="next" disabled>Next</button>
+  </nav>
+  <section class="hero-grid">
+    <article class="card">
+      <div class="label">RECORDED SENTINEL STATE</div>
+      <div class="state-row"><span id="state" class="state">NO DATA</span><span class="sequence">SEQ <strong id="sequence">—</strong></span></div>
+      <p id="reason">Load a recording to inspect decisions.</p>
+    </article>
+    <article class="card">
+      <div class="label" id="metric">METRIC</div>
+      <div class="metric"><span id="value">—</span> <small id="unit"></small></div>
+      <div class="metric-meta"><span id="timestamp">—</span><span id="deviation">—</span></div>
+    </article>
+  </section>
+  <section class="panel-grid">
+    <article class="card panel">
+      <h2>Evidence context</h2>
+      <dl class="facts">
+        <div><dt>Source</dt><dd id="source">—</dd></div>
+        <div><dt>Run</dt><dd id="run">—</dd></div>
+        <div><dt>Policy SHA-256</dt><dd id="policy">—</dd></div>
+        <div><dt>Mode</dt><dd id="mode">—</dd></div>
+      </dl>
+    </article>
+    <article class="card panel">
+      <h2>Notification decision</h2>
+      <dl class="facts">
+        <div><dt>Policy plan</dt><dd id="plan">—</dd></div>
+        <div><dt>Scheduling</dt><dd id="scheduling">—</dd></div>
+        <div><dt>Delivery</dt><dd id="delivery">—</dd></div>
+      </dl>
+      <p id="message">—</p>
+    </article>
+  </section>
+  <footer>Recorded observations are not proof of host integrity. Delivery is shown only when recorded.</footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

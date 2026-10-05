@@ -1,87 +1,25 @@
-# Security Policy & Responsible Use
+# Security policy
 
-**Vapor Sentinel is developed and maintained by Titan Black Swan TECHNOLOGIES.**
+Vapor Sentinel is intended for monitoring systems you own or are authorized to administer.
 
-Vapor Sentinel is a defensive monitoring product. It is intended for authorized administration, monitoring, testing, and security research.
+The current implemented boundary is described in [ARCHITECTURE.md](ARCHITECTURE.md) and the [threat model](docs/threat-model.md). Do not treat it as an EDR, secure enclave, forensic erasure tool, signed evidence ledger, or host-compromise prevention system.
 
-## Authorized use
+## Safe operation
 
-Use the software only on systems for which you have appropriate authorization.
+- Network actions default to disabled. Enabling them requires a valid operator-selected HTTPS destination.
+- Replay always disables delivery. Use it to inspect decisions without contacting a service.
+- Policy/configuration/output locations and the process environment are deployment-controlled. Protect their permissions.
+- Unknown measurements are recorded and cannot authorize anomaly or recovery notifications.
+- Recovery messages describe a policy condition clearing; they do not claim that a host is secure.
+- External effects are limited to HTTPS notifications. No secure shredding or memory-zeroization guarantee is implemented.
+- Maintain output retention and monitor process health independently. A process that cannot obtain a metric or write evidence exits with an error.
 
-Examples include:
+Webhook errors never include endpoint credentials or response bodies. HTTPS is enforced by the client as well as URL validation, redirects are disabled, and requests have a timeout. Network delivery is isolated in a bounded worker and does not grant a policy arbitrary execution authority.
 
-- systems you own;
-- infrastructure operated by your organization;
-- controlled test environments;
-- security research performed with explicit permission.
+## Reporting
 
-Do not use Vapor Sentinel for unauthorized monitoring, covert surveillance, persistence, access-control bypass, credential theft, or data exfiltration.
+A maintainer-designated private vulnerability contact is still required before a public production release. The repository does not currently document a verified working private reporting channel. Do not include secrets or sensitive deployment data in public issues. Maintainers should establish and test a private reporting channel before making production support commitments.
 
-## Current security boundaries
+## Changes to security claims
 
-### Observation and evidence
-
-The monitoring path is designed around explicit typed observations:
-
-Observation -> Deviation -> Qualification -> EvidenceRecord -> ActionPlan
-
-Qualification is fail-closed. Missing baselines and invalid observation ordering are represented as Unknown rather than silently treated as normal.
-
-### External actions
-
-External notification side effects are isolated in src/actions.rs.
-
-Webhook notification requires both:
-
-1. VAPOR_SENTINEL_ENABLE_ACTIONS=1
-2. an HTTPS VAPOR_SENTINEL_WEBHOOK_URL
-
-Action errors are surfaced rather than discarded.
-
-The current implementation does not provide a destructive filesystem action or file-based shutdown control. The bounded runtime uses VAPOR_SENTINEL_ONESHOT=1 or VAPOR_SENTINEL_EXIT=1 for explicit process termination; it does not inspect or delete arbitrary files. Vapor Sentinel does not claim secure shredding or guaranteed unrecoverable file destruction.
-
-### Memory handling
-
-The current runtime does not claim cryptographic memory zeroization. The previous zeroization dependency has been removed because the implemented runtime does not provide that guarantee.
-
-Do not treat ordinary Rust ownership, collection clearing, or process termination as proof of secure memory erasure.
-
-### Runtime configuration
-
-Runtime configuration is explicit rather than compiled into the executable. Startup validates the threshold, polling interval, and configured DSL path. The default configuration is `vapor-sentinel.json`; `VAPOR_SENTINEL_CONFIG` may select another configuration file.
-
-Treat the configuration and DSL policy files as deployment-controlled inputs; they must not be accepted from untrusted network sources.
-
-### DSL boundary
-
-The Vapor DSL intentionally supports a small set of declarative notification constructs, including bounded numeric comparisons. Unsupported constructs such as loops, assignments, and generic executable statements are rejected rather than silently ignored.
-
-The DSL itself does not obtain external authority.
-
-## Security assumptions
-
-This project does not claim to prevent compromise of the host operating system, kernel, hypervisor, firmware, or physical environment.
-
-It is not a secure enclave, EDR replacement, forensic guarantee, or universal intrusion-prevention mechanism.
-
-Security claims must be tied to behavior that is implemented and tested in the repository.
-
-## Deployment guidance
-
-Before deployment:
-
-1. establish authorization for the monitored environment;
-2. review the configured metric and threshold;
-3. keep external actions disabled until the destination and operational behavior are reviewed;
-4. test the one-shot path in a controlled environment;
-5. retain resulting evidence according to your organization's policy.
-
-## Reporting vulnerabilities
-
-Please report security vulnerabilities privately to the project maintainers rather than publishing sensitive exploit details in a public issue.
-
-A dedicated security contact will be published when the commercial release process establishes one.
-
-## Legal
-
-Vapor Sentinel is provided for lawful, authorized defensive use. Operators are responsible for compliance with applicable laws, contracts, policies, and monitoring-consent requirements.
+Claims must identify their assumptions and refer to implementation and repeatable checks. A green build alone does not prove operational security, and a source hash is not authentication. Future signed-policy, attestation, isolation, and distributed-assurance work remains explicitly unimplemented.

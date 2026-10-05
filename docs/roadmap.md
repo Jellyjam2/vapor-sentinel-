@@ -1,79 +1,27 @@
-# Vapor Sentinel Roadmap
+# Delivery roadmap
 
-**Company:** Titan Black Swan TECHNOLOGIES
-**Product:** Vapor Sentinel
+Current implementation and exact semantics: [README](../README.md) and [architecture](../ARCHITECTURE.md).
 
-This roadmap reflects the implementation boundary rather than historical target dates. Dates are intentionally omitted until delivery commitments are established.
+## Immediate release gates
 
-## Phase A — Core verification
+- [ ] Successful hosted CI on the repaired source for Linux, macOS, and Windows.
+- [ ] Maintainer-selected licensing and verified private security contact.
+- [ ] Representative workload benchmarks and operational pilot acceptance criteria.
+- [ ] Installation/service management and output retention guidance validated in a real deployment.
 
-Status: in progress
+## Implemented in the repair branch
 
-- [x] Canonical observation type
-- [x] Deterministic deviation engine
-- [x] Fail-closed qualification
-- [x] Evidence record
-- [x] Pure policy boundary
-- [x] Restricted DSL grammar
-- [x] Explicit rejection of unsupported DSL constructs
-- [x] Isolated optional notification executor
-- [ ] Fully green CI on the current integrated branch
-- [ ] Source-level release reinspection
-- [ ] Runtime integration test suite
+- [x] Deterministic evidence and consistent DSL comparisons.
+- [x] Early parser/resource bounds and registered metric validation.
+- [x] Notification cooldown, retry scheduling, recovery debounce, and bounded background delivery.
+- [x] Versioned evaluation/delivery JSONL, policy hash, and optional recording.
+- [x] Safe deterministic replay and executable regression tests.
+- [x] Read-only viewer for actual recordings, with no live authority.
 
-## Phase B — Operator product
+Implementation status is not a claim of cross-platform or production verification; see [verification](verification.md).
 
-Status: in progress
+## Subsequent work, driven by pilot needs
 
-- [x] Read-only operator dashboard preview
-- [ ] Live evidence stream
-- [ ] State history and transition display
-- [ ] Evidence export
-- [ ] Configuration management
-- [ ] Clear action status reporting
-- [ ] Installation and upgrade workflow
+Live evidence transport, durable delivery, retention/rotation, separate remote monitor-health alerts, container-aware adapters, additional metrics, and deployment packaging should be selected from measured user requirements.
 
-The current dashboard is presentation-only. It uses explicit sample evidence and has no live evidence transport. It must remain an observation/evidence interface and must not acquire hidden authority or silently perform privileged actions.
-
-## Phase C — Pilot readiness
-
-Status: planned
-
-- [ ] Reproducible release artifact
-- [ ] Installation guide
-- [ ] Threat model
-- [ ] Security review
-- [ ] Operational runbook
-- [ ] Failure-mode testing
-- [ ] Customer demo environment
-- [ ] Pilot acceptance criteria
-
-## Phase D — Commercial release
-
-Status: planned
-
-- [ ] Commercial packaging
-- [ ] Product website
-- [ ] Technical one-pager
-- [ ] Sales/demo material
-- [ ] Pricing and licensing
-- [ ] Support process
-- [ ] Customer telemetry/privacy policy
-- [ ] Advertising claims tied to verified functionality
-
-## Future research
-
-Potential future work may include:
-
-- additional metrics and adapters;
-- sandboxed extensions;
-- richer evidence retention;
-- enterprise integrations;
-- distributed monitoring;
-- advanced anomaly models.
-
-These are research/product directions, not current capabilities.
-
-## Release principle
-
-A feature is not considered commercially available merely because its type or interface exists. It must be implemented, tested, documented, and consistent with observable runtime behavior.
+Signed evidence/policies, independently verified replay, capability isolation, attestation, and distributed assurance are future trust boundaries. The preserved [future vision](../FUTURE_UPGRADES_ROADMAP.txt) is not current functionality. Add one boundary at a time with a threat model and executable acceptance evidence.

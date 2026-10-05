@@ -1,144 +1,172 @@
-//! External side effects.
-//!
-//! Action execution is isolated from observation, qualification, evidence,
-//! and policy. Network effects are disabled unless explicitly enabled and
-//! configured.
+//! HTTPS delivery only. Endpoint configuration is validated once; credentials
+//! and response bodies are never included in diagnostic errors.
+use crate::{
+    evidence::EvidenceRecord,
+    policy::{ActionPlan, MAX_NOTIFICATION_BYTES},
+    qualification::SentinelState,
+};
+use anyhow::{bail, Result};
+use serde::{Deserialize, Serialize};
+use std::{env, time::Duration};
 
-use crate::evidence::EvidenceRecord;
-use crate::policy::ActionPlan;
-use crate::qualification::SentinelState;
-use anyhow::{bail, Context, Result};
-use serde::Serialize;
-use serde_json::json;
-use std::env;
-use std::time::Duration;
-
-const ACTION_MESSAGE_MAX_BYTES: usize = 4096;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
 pub enum ActionExecution {
-    Executed,
-    Skipped,
+    Delivered,
+    Skipped { reason: String },
+    Failed { reason: String },
 }
 
-fn actions_enabled() -> bool {
-    env::var("VAPOR_SENTINEL_ENABLE_ACTIONS").as_deref() == Ok("1")
-}
-
-pub fn execute(plan: &ActionPlan, evidence: &EvidenceRecord) -> Result<ActionExecution> {
-    match plan {
-        ActionPlan::NoAction => Ok(ActionExecution::Skipped),
+pub fn validate(plan: &ActionPlan, evidence: &EvidenceRecord) -> Result<()> {
+    let message = match plan {
+        ActionPlan::NoAction => return Ok(()),
         ActionPlan::Notify { message } => {
-            if message.is_empty() || message.len() > ACTION_MESSAGE_MAX_BYTES {
-                bail!("notification message exceeds action boundary");
-            }
-            if message.chars().any(char::is_control) {
-                bail!("notification message contains control characters");
-            }
             if evidence.state() != SentinelState::Anomalous {
-                bail!("notification plan requires anomalous evidence");
+                bail!("notification requires anomalous evidence");
             }
-            send_webhook(message, evidence)
+            message
+        }
+        ActionPlan::Recovered { message } => {
+            if evidence.state() != SentinelState::Normal {
+                bail!("recovery requires normal evidence");
+            }
+            message
+        }
+    };
+    if message.is_empty()
+        || message.len() > MAX_NOTIFICATION_BYTES
+        || message.chars().any(char::is_control)
+    {
+        bail!("invalid notification message");
+    }
+    Ok(())
+}
+
+pub struct Webhook {
+    endpoint: Option<url::Url>,
+    agent: ureq::Agent,
+}
+impl Webhook {
+    pub fn disabled() -> Self {
+        Self {
+            endpoint: None,
+            agent: agent(),
+        }
+    }
+    pub fn configured(endpoint: &str) -> Result<Self> {
+        let url = url::Url::parse(endpoint).map_err(|_| anyhow::anyhow!("invalid webhook URL"))?;
+        if url.scheme() != "https"
+            || url.host_str().is_none()
+            || !url.username().is_empty()
+            || url.password().is_some()
+            || url.fragment().is_some()
+        {
+            bail!("webhook must be HTTPS with a host, without embedded credentials or fragment");
+        }
+        Ok(Self {
+            endpoint: Some(url),
+            agent: agent(),
+        })
+    }
+    pub fn from_env() -> Result<Self> {
+        match env::var("VAPOR_SENTINEL_ENABLE_ACTIONS").as_deref() {
+            Err(env::VarError::NotPresent) | Ok("0") => Ok(Self::disabled()),
+            Ok("1") => {
+                let endpoint = env::var("VAPOR_SENTINEL_WEBHOOK_URL").map_err(|_| {
+                    anyhow::anyhow!("enabled actions require VAPOR_SENTINEL_WEBHOOK_URL")
+                })?;
+                Self::configured(&endpoint)
+            }
+            _ => bail!("VAPOR_SENTINEL_ENABLE_ACTIONS must be 0 or 1"),
+        }
+    }
+    pub fn deliver(
+        &mut self,
+        notification: &crate::delivery::Notification,
+    ) -> Result<ActionExecution> {
+        validate(&notification.plan, &notification.evidence)?;
+        if matches!(notification.plan, ActionPlan::NoAction) {
+            return Ok(ActionExecution::Skipped {
+                reason: "no_action".into(),
+            });
+        }
+        let Some(endpoint) = &self.endpoint else {
+            return Ok(ActionExecution::Skipped {
+                reason: "actions_disabled".into(),
+            });
+        };
+        let payload = serde_json::to_string(notification)?;
+        match self
+            .agent
+            .post(endpoint.as_str())
+            .set("Content-Type", "application/json")
+            .send_string(&payload)
+        {
+            Ok(response) if (200..300).contains(&response.status()) => {
+                Ok(ActionExecution::Delivered)
+            }
+            Ok(response) | Err(ureq::Error::Status(_, response)) => {
+                bail!("webhook returned HTTP {}", response.status())
+            }
+            Err(ureq::Error::Transport(_)) => {
+                bail!("webhook transport failed (timeout, DNS, connection, or TLS)")
+            }
         }
     }
 }
-
-fn send_webhook(message: &str, evidence: &EvidenceRecord) -> Result<ActionExecution> {
-    if !actions_enabled() {
-        return Ok(ActionExecution::Skipped);
-    }
-
-    let Some(url) = env::var_os("VAPOR_SENTINEL_WEBHOOK_URL") else {
-        return Ok(ActionExecution::Skipped);
-    };
-    let url = url
-        .into_string()
-        .map_err(|_| anyhow::anyhow!("webhook URL must be valid UTF-8"))?;
-
-    if !url.starts_with("https://") {
-        bail!("VAPOR_SENTINEL_WEBHOOK_URL must use HTTPS");
-    }
-
-    let payload = json!({
-        "metric": evidence.metric(),
-        "sequence": evidence.sequence(),
-        "value": evidence.value(),
-        "threshold": evidence.threshold(),
-        "state": evidence.state(),
-        "message": message,
-    });
-
-    let agent = ureq::AgentBuilder::new()
+fn agent() -> ureq::Agent {
+    ureq::AgentBuilder::new()
         .timeout(Duration::from_secs(10))
         .https_only(true)
         .redirects(0)
-        .build();
-
-    let response = agent
-        .post(&url)
-        .set("Content-Type", "application/json")
-        .send_string(&payload.to_string())
-        .with_context(|| "webhook request failed")?;
-
-    if !(200..300).contains(&response.status()) {
-        bail!("webhook returned HTTP {}", response.status());
-    }
-
-    Ok(ActionExecution::Executed)
+        .build()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::observation::Observation;
-    use crate::qualification::SentinelState;
-
-    fn evidence_with_state(state: SentinelState) -> EvidenceRecord {
-        let previous = Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 80).unwrap();
-        let current = Observation::new("SYSTEM_USED_MEMORY_MIB", 2, 120).unwrap();
-        let evidence = EvidenceRecord::evaluate(Some(&previous), &current, 100);
-
-        if state == SentinelState::Anomalous {
-            evidence
-        } else {
-            EvidenceRecord::evaluate(
-                Some(&previous),
-                &Observation::new("SYSTEM_USED_MEMORY_MIB", 2, 80).unwrap(),
-                100,
-            )
+    fn evidence(value: u64) -> EvidenceRecord {
+        EvidenceRecord::evaluate(
+            Some(&Observation::new("RAM", 1, 80).unwrap()),
+            &Observation::new("RAM", 2, value).unwrap(),
+            100,
+        )
+    }
+    #[test]
+    fn action_types_require_matching_evidence() {
+        let notify = ActionPlan::Notify {
+            message: "alert".into(),
+        };
+        let recovered = ActionPlan::Recovered {
+            message: "recovered".into(),
+        };
+        assert!(validate(&notify, &evidence(120)).is_ok());
+        assert!(validate(&notify, &evidence(80)).is_err());
+        assert!(validate(&recovered, &evidence(80)).is_ok());
+        assert!(validate(&recovered, &evidence(120)).is_err());
+    }
+    #[test]
+    fn oversized_and_control_messages_are_rejected() {
+        for message in [
+            "".into(),
+            "x".repeat(MAX_NOTIFICATION_BYTES + 1),
+            "bad\nmessage".into(),
+        ] {
+            assert!(validate(&ActionPlan::Notify { message }, &evidence(120)).is_err());
         }
     }
-
     #[test]
-    fn notification_requires_anomalous_evidence() {
-        let evidence = evidence_with_state(SentinelState::Normal);
-        let plan = ActionPlan::Notify {
-            message: "must not fire".into(),
-        };
-
-        let error = execute(&plan, &evidence).expect_err("non-anomalous notification must fail");
-        assert!(error.to_string().contains("anomalous evidence"));
-    }
-
-    #[test]
-    fn oversized_or_controlled_notification_is_rejected() {
-        let evidence = evidence_with_state(SentinelState::Anomalous);
-        let oversized = ActionPlan::Notify { message: "x".repeat(ACTION_MESSAGE_MAX_BYTES + 1) };
-        assert!(execute(&oversized, &evidence).is_err());
-        let controlled = ActionPlan::Notify { message: "bad\nmessage".into() };
-        assert!(execute(&controlled, &evidence).is_err());
-    }
-
-    #[test]
-    fn no_action_is_always_skipped() {
-        let evidence = EvidenceRecord::evaluate(
-            None,
-            &Observation::new("SYSTEM_USED_MEMORY_MIB", 1, 120).unwrap(),
-            100,
-        );
-        assert_eq!(
-            execute(&ActionPlan::NoAction, &evidence).unwrap(),
-            ActionExecution::Skipped
-        );
+    fn endpoint_validation_does_not_expose_secrets() {
+        for url in [
+            "http://example.com/token",
+            "https://user:secret@example.com",
+            "https://example.com/#secret",
+            "not a URL",
+        ] {
+            let error = Webhook::configured(url).err().unwrap().to_string();
+            assert!(!error.contains("secret"));
+        }
+        assert!(Webhook::configured("https://example.com/webhook?token=secret").is_ok());
     }
 }

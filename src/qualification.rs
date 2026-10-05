@@ -23,53 +23,50 @@ pub fn qualify(
     deviation: Option<&Deviation>,
     threshold: u64,
 ) -> Qualification {
-    let Some(observation) = observation else {
-        return Qualification {
-            state: SentinelState::Unknown,
-            reason: "no observation",
-        };
+    qualify_match(
+        observation,
+        deviation,
+        observation.is_some_and(|o| o.value() >= threshold),
+    )
+}
+
+/// A valid sample is anomalous precisely when the configured policy matches.
+/// Changing values alone do not imply unhealthy behavior.
+pub fn qualify_match(
+    observation: Option<&Observation>,
+    deviation: Option<&Deviation>,
+    matched: bool,
+) -> Qualification {
+    let reason = match (observation, deviation) {
+        (None, _) => Some("no observation"),
+        (
+            _,
+            Some(
+                Deviation::DuplicateSequence
+                | Deviation::OutOfOrderSequence
+                | Deviation::MetricMismatch
+                | Deviation::SequenceGap,
+            ),
+        ) => Some("invalid observation ordering or identity"),
+        (_, Some(Deviation::NoBaseline) | None) => Some("baseline unavailable"),
+        _ => None,
     };
-
-    match deviation {
-        Some(
-            Deviation::DuplicateSequence
-            | Deviation::OutOfOrderSequence
-            | Deviation::MetricMismatch,
-        ) => {
-            return Qualification {
-                state: SentinelState::Unknown,
-                reason: "invalid observation ordering or identity",
-            };
-        }
-        Some(Deviation::NoBaseline) | None => {
-            return Qualification {
-                state: SentinelState::Unknown,
-                reason: "baseline unavailable",
-            };
-        }
-        Some(Deviation::Unchanged | Deviation::Increased { .. } | Deviation::Decreased { .. }) => {}
-    }
-
-    if observation.value() > threshold {
+    if let Some(reason) = reason {
         return Qualification {
-            state: SentinelState::Anomalous,
-            reason: "threshold exceeded",
+            state: SentinelState::Unknown,
+            reason,
         };
     }
-
-    match deviation {
-        Some(Deviation::Increased { .. } | Deviation::Decreased { .. }) => Qualification {
-            state: SentinelState::Degraded,
-            reason: "metric changed",
-        },
-        Some(Deviation::Unchanged) => Qualification {
+    if matched {
+        Qualification {
+            state: SentinelState::Anomalous,
+            reason: "policy condition matched",
+        }
+    } else {
+        Qualification {
             state: SentinelState::Normal,
-            reason: "evidence within threshold",
-        },
-        _ => Qualification {
-            state: SentinelState::Unknown,
-            reason: "insufficient evidence",
-        },
+            reason: "no policy condition matched",
+        }
     }
 }
 
@@ -108,13 +105,13 @@ mod tests {
     }
 
     #[test]
-    fn changed_but_below_threshold_is_degraded() {
+    fn changed_but_below_threshold_is_normal() {
         let previous = obs(1, 80);
         let current = obs(2, 90);
         let d = compare(Some(&previous), &current);
         assert_eq!(
             qualify(Some(&current), Some(&d), 100).state,
-            SentinelState::Degraded
+            SentinelState::Normal
         );
     }
 

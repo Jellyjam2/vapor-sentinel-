@@ -1,0 +1,7 @@
+[
+  {"metric":"SYSTEM_AVAILABLE_MEMORY_PERCENT","sequence":1,"value":50},
+  {"metric":"SYSTEM_AVAILABLE_MEMORY_PERCENT","sequence":2,"value":10},
+  {"metric":"SYSTEM_AVAILABLE_MEMORY_PERCENT","sequence":3,"value":9},
+  {"metric":"SYSTEM_AVAILABLE_MEMORY_PERCENT","sequence":4,"value":40},
+  {"metric":"SYSTEM_AVAILABLE_MEMORY_PERCENT","sequence":5,"value":45}
+]

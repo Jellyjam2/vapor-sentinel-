@@ -1,8 +1,9 @@
 //! Auditable evidence records produced from deterministic qualification.
 
 use crate::deviation::{compare, Deviation};
+use crate::dsl::Program;
 use crate::observation::Observation;
-use crate::qualification::{qualify, Qualification, SentinelState};
+use crate::qualification::{qualify, qualify_match, Qualification, SentinelState};
 use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -10,13 +11,39 @@ pub struct EvidenceRecord {
     sequence: u64,
     metric: String,
     value: u64,
-    threshold: u64,
+    threshold: Option<u64>,
+    matched_messages: Vec<String>,
     deviation: Deviation,
     state: SentinelState,
     reason: &'static str,
 }
 
 impl EvidenceRecord {
+    /// Evaluate the actual DSL predicate; there is no hidden second threshold.
+    pub fn evaluate_policy(
+        previous: Option<&Observation>,
+        current: &Observation,
+        program: &Program,
+    ) -> Self {
+        let messages = program.requested_messages(current);
+        let deviation = compare(previous, current);
+        let qualification = qualify_match(Some(current), Some(&deviation), !messages.is_empty());
+        Self {
+            sequence: current.sequence(),
+            metric: current.metric().to_owned(),
+            value: current.value(),
+            threshold: None,
+            matched_messages: messages,
+            deviation,
+            state: qualification.state,
+            reason: qualification.reason,
+        }
+    }
+
+    pub fn matched_messages(&self) -> &[String] {
+        &self.matched_messages
+    }
+
     pub fn evaluate(previous: Option<&Observation>, current: &Observation, threshold: u64) -> Self {
         let deviation = compare(previous, current);
         let qualification = qualify(Some(current), Some(&deviation), threshold);
@@ -35,7 +62,7 @@ impl EvidenceRecord {
         self.value
     }
 
-    pub fn threshold(&self) -> u64 {
+    pub fn threshold(&self) -> Option<u64> {
         self.threshold
     }
 
@@ -61,7 +88,8 @@ impl EvidenceRecord {
             sequence: observation.sequence(),
             metric: observation.metric().to_owned(),
             value: observation.value(),
-            threshold,
+            threshold: Some(threshold),
+            matched_messages: Vec::new(),
             deviation,
             state: qualification.state,
             reason: qualification.reason,
@@ -81,10 +109,10 @@ mod tests {
         assert_eq!(e.sequence(), 4);
         assert_eq!(e.metric(), "SYSTEM_RAM");
         assert_eq!(e.value(), 120);
-        assert_eq!(e.threshold(), 100);
+        assert_eq!(e.threshold(), Some(100));
         assert_eq!(e.deviation(), &Deviation::Increased { delta: 20 });
         assert_eq!(e.state(), SentinelState::Anomalous);
-        assert_eq!(e.reason(), "threshold exceeded");
+        assert_eq!(e.reason(), "policy condition matched");
     }
 
     #[test]
