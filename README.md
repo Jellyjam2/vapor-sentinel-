@@ -154,4 +154,12 @@ cargo build --locked --release
 
 CI targets Linux, macOS, and Windows with the pinned compiler and locked dependencies. A workflow definition is not a claim that those platform runs have passed. See [verification notes](docs/verification.md) for the actual local checks.
 
-Remaining release work includes a real-environment pilot, service packaging, a maintainer-selected license and vulnerability reporting channel, operational benchmarks, live transport if needed, and independent security review. The future roadmap is not implemented capability.
+For deployment acceptance criteria and repeatable Linux overhead measurements, see the [operational pilot guide](docs/operational-pilot.md). After building the release executable, a short actions-disabled measurement is:
+
+```sh
+python3 scripts/measure_runtime.py --samples 30 --output pilot-results/first-run
+```
+
+This requires Linux and Python 3.9+. It retains exact inputs, raw evidence, CPU/peak-RSS measurements, and sample-gap summaries in a new directory. It does not exercise live webhooks or complete a representative deployment pilot.
+
+Remaining release work includes a real-environment pilot, service packaging, a maintainer-selected license and vulnerability reporting channel, representative operational benchmarks, live transport if needed, and independent security review. The future roadmap is not implemented capability.
