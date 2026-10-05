@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — pilot verification tooling
+
+- Added a bounded Linux measurement CLI that copies effective inputs, disables notification delivery, retains raw evidence and resource/sample-gap measurements, and reports incomplete or failed runs.
+- Added executable regressions for inherited action configuration, input preservation, incomplete output, process failure, timeout cleanup and existing-output protection.
+- Added a deployment pilot guide with operator-defined budgets, measurement limits, webhook receipts, shutdown/restart, installation and retention acceptance criteria.
+- Recorded the successful post-merge main CI run and added a short Linux measurement smoke run with retained artifacts. A smoke run does not complete the representative deployment gate.
+
 ## Unreleased — refined evidence workspace
 
 - Redesigned the local dashboard with a charcoal and champagne visual system, responsive navigation, an observation timeline, state distribution, evidence explorer, detailed inspector, and delivery journal.
@@ -43,4 +50,4 @@
 
 ### Limitations
 
-No authenticated telemetry, signed evidence, durable delivery queue, service installer, or live dashboard transport is claimed. Log retention and monitored-workload calibration are deployment responsibilities. License selection, a verified private reporting channel, real-environment benchmarks, pilot validation, and cross-platform CI results remain release requirements. See docs/verification.md for checks actually completed.
+No authenticated telemetry, signed evidence, durable delivery queue, service installer, or live dashboard transport is claimed. Log retention and monitored-workload calibration are deployment responsibilities. License selection, a verified private reporting channel, real-environment benchmarks and pilot validation remain release requirements. Cross-platform CI has passed for the repaired main branch; see docs/verification.md for the exact revision and checks actually completed.

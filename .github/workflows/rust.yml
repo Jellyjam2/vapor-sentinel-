@@ -66,6 +66,23 @@ jobs:
         run: cargo run --locked -- --replay tests/fixtures/memory-sequence.json > smoke-evidence.jsonl
       - name: Build release
         run: cargo build --locked --release
+      - name: Pilot measurement regressions (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: python3 -m unittest discover -s tests -p test_measure_runtime.py -v
+      - name: Pilot measurement smoke (Linux; not a performance budget)
+        if: matrix.os == 'ubuntu-latest'
+        run: >-
+          python3 scripts/measure_runtime.py --samples 3
+          --label "GitHub-hosted runner smoke run"
+          --source-revision "${{ github.sha }}"
+          --output pilot-results/ci
+      - name: Save pilot measurement evidence
+        if: always() && matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: pilot-measurement-evidence
+          if-no-files-found: warn
+          path: pilot-results/ci/
       - name: Upload checkpoint artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
