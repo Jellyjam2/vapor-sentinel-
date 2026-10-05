@@ -1,0 +1,242 @@
+[
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 1,
+    "value": 54
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 2,
+    "value": 55
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 3,
+    "value": 56
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 4,
+    "value": 55
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 5,
+    "value": 53
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 6,
+    "value": 54
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 7,
+    "value": 57
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 8,
+    "value": 55
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 9,
+    "value": 53
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 10,
+    "value": 52
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 11,
+    "value": 54
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 12,
+    "value": 51
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 13,
+    "value": 48
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 14,
+    "value": 50
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 15,
+    "value": 46
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 16,
+    "value": 42
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 17,
+    "value": 39
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 18,
+    "value": 41
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 19,
+    "value": 35
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 20,
+    "value": 32
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 21,
+    "value": 29
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 22,
+    "value": 26
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 23,
+    "value": 20
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 24,
+    "value": 18
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 25,
+    "value": 14
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 26,
+    "value": 10
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 27,
+    "value": 8
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 28,
+    "value": 9
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 29,
+    "value": 7
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 30,
+    "value": 8
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 31,
+    "value": 9
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 32,
+    "value": 12
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 33,
+    "value": 16
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 34,
+    "value": 23
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 35,
+    "value": 29
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 36,
+    "value": 35
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 37,
+    "value": 39
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 38,
+    "value": 42
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 39,
+    "value": 40
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 40,
+    "value": 43
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 41,
+    "value": 46
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 42,
+    "value": 44
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 43,
+    "value": 48
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 44,
+    "value": 47
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 45,
+    "value": 49
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 46,
+    "value": 51
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 47,
+    "value": 50
+  },
+  {
+    "metric": "SYSTEM_AVAILABLE_MEMORY_PERCENT",
+    "sequence": 48,
+    "value": 52
+  }
+]
